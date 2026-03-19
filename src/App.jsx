@@ -78,7 +78,7 @@ const Av = ({ ini, size=40, col=G, ver=false }) => (
     <span style={{ width:size, height:size, borderRadius:"50%", background:col, display:"flex", alignItems:"center", justifyContent:"center", fontSize:size*0.33, fontWeight:700, color:"#fff", fontFamily:"DM Sans,sans-serif" }}>
       {ini}
     </span>
-    {ver && <span style={{ position:"absolute", bottom:-2, right:-2 }}><VerBadge size={size*.42}/></span>}
+    {ver && <span style={{ position:"absolute", bottom:0, right:-4 }}><VerBadge size={size*.42}/></span>}
   </span>
 );
 
