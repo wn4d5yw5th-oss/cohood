@@ -1,5 +1,5 @@
 import { useState } from "react";
-
+import { supabase } from "./supabase"; 
 // ── Icon renderer ─────────────────────────────────────────────────────────
 const P = {
   home:"M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z M9 21V12h6v9",
