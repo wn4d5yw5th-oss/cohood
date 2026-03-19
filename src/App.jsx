@@ -367,6 +367,13 @@ function VerifyModal({ t, dm, onClose, onVerified }) {
   );
 }
 
+const Wrap = ({ children }) => (
+    <div style={{ minHeight:"100vh", background:"#F7F4EF", fontFamily:"DM Sans,sans-serif", maxWidth:480, margin:"0 auto", display:"flex", flexDirection:"column", position:"relative" }}>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet"/>
+      {children}
+    </div>
+  );
+
 function Auth({ onLogin, lang, setLang }) {
   const t = TXT[lang];
   const [screen, setScreen] = useState("login");
@@ -426,12 +433,7 @@ function Auth({ onLogin, lang, setLang }) {
     await supabase.auth.signInWithOAuth({ provider:"google", options:{ redirectTo:"https://cohood.nl" } });
   };
 
-  const Wrap = ({ children }) => (
-    <div style={{ minHeight:"100vh", background:"#F7F4EF", fontFamily:"DM Sans,sans-serif", maxWidth:480, margin:"0 auto", display:"flex", flexDirection:"column", position:"relative" }}>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet"/>
-      {children}
-    </div>
-  );
+  
 
   const LangPicker = () => (
     <div style={{ position:"absolute", top:16, right:16, zIndex:10 }}>
