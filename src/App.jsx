@@ -705,6 +705,7 @@ function App2({ lang, setLang, onLogout, dm, setDm, verified, setVerified, user 
   const [tab, setTab] = useState("feed");
   const [filter, setFilter] = useState("all");
   const [liked, setLiked] = useState({});
+  const [likeCounts, setLikeCounts] = useState({});
   const [comments, setComments] = useState({});
   const [cmtInput, setCmtInput] = useState({});
   const [cmtList, setCmtList] = useState({});
@@ -723,6 +724,11 @@ useEffect(()=>{
       const obj={};
       likedPosts.forEach(id=>{obj[String(id)]=true;});
       setLiked(obj);
+    });
+    posts.forEach(p=>{
+      getLikes(p.id).then(count=>{
+        setLikeCounts(prev=>({...prev,[p.id]:count}));
+      });
     });
   }
 },[user]);
@@ -908,9 +914,9 @@ const filtPosts = posts.filter(p=>{
                     </button>
                   )}
                   <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                    <button onClick={async()=>{ const newState = await toggleLike(p.id, user?.id); setLiked(prev=>({...prev,[p.id]:newState})); }} style={{ display:"flex", alignItems:"center", gap:4, padding:"6px 12px", borderRadius:20, border:"1.5px solid "+(liked[p.id]?"#E53935":bdr), background:liked[p.id]?"#FFF0F0":"transparent", color:liked[p.id]?"#E53935":mid, cursor:"pointer", fontSize:12, fontWeight:600, transition:"all .2s" }}>
+                    <button onClick={async()=>{ const newState = await toggleLike(p.id, user?.id); setLiked(prev=>({...prev,[p.id]:newState})); setLikeCounts(prev=>({...prev,[p.id]:(prev[p.id]||0)+(newState?1:-1)})); }} style={{ display:"flex", alignItems:"center", gap:4, padding:"6px 12px", borderRadius:20, border:"1.5px solid "+(liked[p.id]?"#E53935":bdr), background:liked[p.id]?"#FFF0F0":"transparent", color:liked[p.id]?"#E53935":mid, cursor:"pointer", fontSize:12, fontWeight:600, transition:"all .2s" }}>
                       {liked[p.id]?(<svg width="13" height="13" viewBox="0 0 24 24" fill="#E53935"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>):(<Icon n="heart" size={13} color={mid}/>)}
-                      {liked[p.id]?1:0}
+                      {likeCounts[p.id]||0}
                     </button>
                     <button onClick={()=>setComments(prev=>({...prev,[p.id]:!prev[p.id]}))} style={{ display:"flex", alignItems:"center", gap:4, padding:"6px 12px", borderRadius:20, border:"1.5px solid "+(comments[p.id]?G:bdr), background:comments[p.id]?GL:"transparent", color:comments[p.id]?G:mid, cursor:"pointer", fontSize:12, fontWeight:600, transition:"all .2s" }}>
                       <Icon n="msg" size={13} color={comments[p.id]?G:mid}/> {(cmtList[p.id]||[]).length}
