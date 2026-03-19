@@ -725,6 +725,8 @@ function App2({ lang, setLang, onLogout, dm, setDm, verified, setVerified, user 
   const [success, setSuccess] = useState(null);
   const [langOpen, setLangOpen] = useState(false);
   const [profile, setProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [showEditProfile, setShowEditProfile] = useState(false);
 
   const bg = dm?"#181510":"#F7F4EF";
   const card = dm?"#232018":"#FFFFFF";
@@ -734,12 +736,27 @@ function App2({ lang, setLang, onLogout, dm, setDm, verified, setVerified, user 
   const warm = dm?"#2C2820":"#F0EBE1";
 
   useEffect(()=>{
-    if(user?.id){
-      supabase.from("profiles").select("*").eq("id",user.id).single().then(({data})=>{
-        if(data) setProfile(data);
-      });
-    }
-  },[user]);
+  if(user?.id){
+    supabase.from("profiles").select("*").eq("id",user.id).single().then(({data, error})=>{
+      if(data){
+        setProfile(data);
+      } else {
+        // Profil yok, oluştur
+        supabase.from("profiles").insert({
+          id: user.id,
+          full_name: user.user_metadata?.full_name || user.user_metadata?.name || "",
+          neighborhood: "",
+          verified: false
+        }).then(()=>{
+          setProfile({ full_name: user.user_metadata?.full_name || "", neighborhood: "" });
+        });
+      }
+      setProfileLoading(false);
+    });
+  } else {
+    setProfileLoading(false);
+  }
+},[user]);
 
   const displayName = profile?.full_name||user?.user_metadata?.full_name||"User";
   const displayHood = profile?.neighborhood||user?.user_metadata?.neighborhood||"Amsterdam";
@@ -753,7 +770,12 @@ function App2({ lang, setLang, onLogout, dm, setDm, verified, setVerified, user 
   const submitHelp = () => requireVer(()=>{ setSuccess("help"); setTimeout(()=>{ setSuccess(null); setTab("feed"); setNeedCat(null); setNeedTxt(""); setOfferCat(null); setOfferTxt(""); setIsUrgent(false); },2000); });
   const submitEv = () => requireVer(()=>{ setSuccess("ev"); setTimeout(()=>{ setSuccess(null); setTab("feed"); setEvType(null); setEvName(""); setEvDate(""); setEvLoc(""); },2000); });
   const sendDm = () => { setDmSent(true); setTimeout(()=>{ setDmSent(false); setDmPost(null); setDmText(""); },1800); };
-  const filtPosts = posts.filter(p=>filter==="all"||(filter==="help"&&p.type==="help")||(filter==="event"&&p.type==="event"));
+const userHood = profile?.neighborhood || user?.user_metadata?.neighborhood;
+const filtPosts = posts.filter(p=>{
+  const hoodMatch = !userHood || userHood==="Amsterdam" || p.hood===userHood || p.hood==="All Neighborhood" || p.hood==="Hele Buurt";
+  const typeMatch = filter==="all"||(filter==="help"&&p.type==="help")||(filter==="event"&&p.type==="event");
+  return hoodMatch && typeMatch;
+});
 
   const NavBtn = ({ k, icon, label, badge }) => (
     <button onClick={()=>setTab(k)} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:3, padding:"7px 0 8px", border:"none", background:"transparent", cursor:"pointer", color:tab===k?G:mid, position:"relative" }}>
@@ -797,7 +819,7 @@ function App2({ lang, setLang, onLogout, dm, setDm, verified, setVerified, user 
               <div>
                 <h2 style={{ margin:0, fontSize:20, fontWeight:700, color:ink, fontFamily:"Playfair Display,serif", letterSpacing:-.3 }}>{t.feedTitle}</h2>
                 <div style={{ display:"flex", alignItems:"center", gap:4, marginTop:4, color:mid, fontSize:12 }}>
-                  <Icon n="mapPin" size={12} color={mid}/> Amsterdam
+                  <Icon n="mapPin" size={12} color={mid}/> {userHood || "Amsterdam"}
                 </div>
               </div>
               <div style={{ background:GL, borderRadius:20, padding:"4px 12px", display:"flex", alignItems:"center", gap:6 }}>
@@ -1061,6 +1083,7 @@ function App2({ lang, setLang, onLogout, dm, setDm, verified, setVerified, user 
                 )}
               </div>
             </div>
+            <button onClick={()=>setShowEditProfile(true)} style={{ marginBottom:12, width:"100%", padding:"11px 0", background:"transparent", border:"1.5px solid #E2D9CC", borderRadius:12, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6, color:ink }}><Icon n="user" size={15} color={ink}/><span style={{ fontSize:13, fontWeight:600 }}>Edit Profile</span></button>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:12 }}>
               {[[12,t.helped,"heart"],[5,t.evLabel,"calendar"],[89,t.conns,"users"]].map(([n,lbl,icon])=>(
                 <div key={lbl} style={{ background:card, border:"1px solid "+bdr, borderRadius:14, padding:"13px 8px", textAlign:"center" }}>
@@ -1202,11 +1225,46 @@ function App2({ lang, setLang, onLogout, dm, setDm, verified, setVerified, user 
         </div>
       )}
 
+{showEditProfile&&(
+  <EditProfileModal user={user} profile={profile} onClose={()=>setShowEditProfile(false)} onSave={(data)=>setProfile(prev=>({...prev,...data}))} lang={lang}/>
+)}
+
       {showVer&&(
         <VerifyModal t={t} dm={dm} onClose={()=>setShowVer(false)} onVerified={()=>{setVerified(true);setShowVer(false);}}/>
       )}
 
       <style>{"@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}} @keyframes spin{to{transform:rotate(360deg)}} button:active{transform:scale(.97)}"}</style>
+    </div>
+  );
+}
+
+function EditProfileModal({ user, profile, onClose, onSave, lang }) {
+  const t = TXT[lang];
+  const [name, setName] = useState(profile?.full_name || user?.user_metadata?.full_name || "");
+  const [hood, setHood] = useState(profile?.neighborhood || "");
+  const [bio, setBio] = useState(profile?.bio || "");
+  const save = async () => {
+    await supabase.from("profiles").upsert({ id:user.id, full_name:name, neighborhood:hood, bio:bio });
+    onSave({ full_name:name, neighborhood:hood, bio:bio });
+    onClose();
+  };
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:300, background:"rgba(0,0,0,.5)", display:"flex", alignItems:"flex-end", justifyContent:"center" }} onClick={onClose}>
+      <div style={{ background:"#fff", borderRadius:"20px 20px 0 0", width:"100%", maxWidth:480, padding:"20px 24px 40px" }} onClick={e=>e.stopPropagation()}>
+        <div style={{ width:36, height:4, background:"#E2D9CC", borderRadius:2, margin:"0 auto 20px" }}/>
+        <h3 style={{ margin:"0 0 16px", fontSize:18, fontWeight:700, color:"#2C2416", fontFamily:"Playfair Display,serif" }}>Edit Profile</h3>
+        <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:20 }}>
+          <InputField icon="user" ph="Full name" val={name} onChange={e=>setName(e.target.value)}/>
+          <select value={hood} onChange={e=>setHood(e.target.value)} style={{ padding:"12px 14px", background:"#F0EBE1", border:"1.5px solid #E2D9CC", borderRadius:12, fontSize:14, color:hood?"#2C2416":"#A8997E", fontFamily:"DM Sans,sans-serif", outline:"none", cursor:"pointer" }}>
+            <option value="" disabled>Select neighborhood</option>
+            {AMSTERDAM_HOODS.map(h=><option key={h} value={h}>{h}</option>)}
+          </select>
+          <div style={{ background:"#F0EBE1", border:"1.5px solid #E2D9CC", borderRadius:12, padding:"12px 14px" }}>
+            <textarea value={bio} onChange={e=>setBio(e.target.value)} placeholder="Short bio..." style={{ width:"100%", border:"none", outline:"none", background:"transparent", fontSize:14, color:"#2C2416", fontFamily:"DM Sans,sans-serif", resize:"none", minHeight:70, boxSizing:"border-box" }}/>
+          </div>
+        </div>
+        <button onClick={save} style={{ width:"100%", padding:"14px 0", background:"#3D6B35", color:"#fff", border:"none", borderRadius:14, fontSize:15, fontWeight:700, cursor:"pointer" }}>Save</button>
+      </div>
     </div>
   );
 }
