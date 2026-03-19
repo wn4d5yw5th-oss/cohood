@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { supabase } from './supabase';
 import { signUp, signIn, signOut, resetPassword } from './auth';
 // ── Icon renderer ─────────────────────────────────────────────────────────
 const P = {
