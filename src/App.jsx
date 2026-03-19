@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from './supabase';
 import { signUp, signIn, signOut, resetPassword } from './auth';
 // ── Icon renderer ─────────────────────────────────────────────────────────
@@ -1283,6 +1283,7 @@ function App2({ lang, setLang, onLogout, dm, setDm, verified, setVerified }) {
 // ── Root ──────────────────────────────────────────────────────────────────
 export default function Root() {
   const [authed, setAuthed] = useState(false);
+  useEffect(()=>{ supabase.auth.getSession().then(({data:{session}})=>{ if(session) setAuthed(true); }); supabase.auth.onAuthStateChange((_,session)=>{ if(session) setAuthed(true); else setAuthed(false); }); },[]);
   const [lang, setLang] = useState("EN");
   const [dm, setDm] = useState(false);
   const [verified, setVerified] = useState(false);
