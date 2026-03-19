@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from './supabase';
 import { saveComment, getComments } from './comments';
+import { toggleLike, getLikes, getUserLikes } from './likes';
 import { signUp, signIn, resetPassword } from './auth';
 
 const P = {
@@ -716,6 +717,15 @@ function App2({ lang, setLang, onLogout, dm, setDm, verified, setVerified, user 
     });
   }
 },[]);
+useEffect(()=>{
+  if(user?.id){
+    getUserLikes(user.id).then(likedPosts=>{
+      const obj={};
+      likedPosts.forEach(id=>{obj[String(id)]=true;});
+      setLiked(obj);
+    });
+  }
+},[user]);
   const [translated, setTranslated] = useState({});
   const [translating, setTranslating] = useState({});
   const [dmPost, setDmPost] = useState(null);
@@ -898,9 +908,9 @@ const filtPosts = posts.filter(p=>{
                     </button>
                   )}
                   <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                    <button onClick={()=>setLiked(prev=>({...prev,[p.id]:!prev[p.id]}))} style={{ display:"flex", alignItems:"center", gap:4, padding:"6px 12px", borderRadius:20, border:"1.5px solid "+(liked[p.id]?"#E53935":bdr), background:liked[p.id]?"#FFF0F0":"transparent", color:liked[p.id]?"#E53935":mid, cursor:"pointer", fontSize:12, fontWeight:600, transition:"all .2s" }}>
+                    <button onClick={async()=>{ const newState = await toggleLike(p.id, user?.id); setLiked(prev=>({...prev,[p.id]:newState})); }} style={{ display:"flex", alignItems:"center", gap:4, padding:"6px 12px", borderRadius:20, border:"1.5px solid "+(liked[p.id]?"#E53935":bdr), background:liked[p.id]?"#FFF0F0":"transparent", color:liked[p.id]?"#E53935":mid, cursor:"pointer", fontSize:12, fontWeight:600, transition:"all .2s" }}>
                       {liked[p.id]?(<svg width="13" height="13" viewBox="0 0 24 24" fill="#E53935"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>):(<Icon n="heart" size={13} color={mid}/>)}
-                      {p.likes+(liked[p.id]?1:0)}
+                      {liked[p.id]?1:0}
                     </button>
                     <button onClick={()=>setComments(prev=>({...prev,[p.id]:!prev[p.id]}))} style={{ display:"flex", alignItems:"center", gap:4, padding:"6px 12px", borderRadius:20, border:"1.5px solid "+(comments[p.id]?G:bdr), background:comments[p.id]?GL:"transparent", color:comments[p.id]?G:mid, cursor:"pointer", fontSize:12, fontWeight:600, transition:"all .2s" }}>
                       <Icon n="msg" size={13} color={comments[p.id]?G:mid}/> {(cmtList[p.id]||[]).length}
