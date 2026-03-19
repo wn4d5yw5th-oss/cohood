@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from './supabase';
+import { saveComment, getComments } from './comments';
 import { signUp, signIn, resetPassword } from './auth';
 
 const P = {
@@ -705,6 +706,16 @@ function App2({ lang, setLang, onLogout, dm, setDm, verified, setVerified, user 
   const [liked, setLiked] = useState({});
   const [comments, setComments] = useState({});
   const [cmtInput, setCmtInput] = useState({});
+  const [cmtList, setCmtList] = useState({});
+  useEffect(()=>{
+  if(posts.length){
+    posts.forEach(p=>{
+      supabase.from("comments").select("*").eq("post_id",p.id).order("created_at").then(({data})=>{
+        if(data&&data.length) setCmtList(prev=>({...prev,[p.id]:data.map(c=>({txt:c.content,name:c.full_name,ini:c.full_name?c.full_name[0]:"?",col:G}))}));
+      });
+    });
+  }
+},[]);
   const [translated, setTranslated] = useState({});
   const [translating, setTranslating] = useState({});
   const [dmPost, setDmPost] = useState(null);
@@ -892,7 +903,7 @@ const filtPosts = posts.filter(p=>{
                       {p.likes+(liked[p.id]?1:0)}
                     </button>
                     <button onClick={()=>setComments(prev=>({...prev,[p.id]:!prev[p.id]}))} style={{ display:"flex", alignItems:"center", gap:4, padding:"6px 12px", borderRadius:20, border:"1.5px solid "+(comments[p.id]?G:bdr), background:comments[p.id]?GL:"transparent", color:comments[p.id]?G:mid, cursor:"pointer", fontSize:12, fontWeight:600, transition:"all .2s" }}>
-                      <Icon n="msg" size={13} color={comments[p.id]?G:mid}/> {p.replies}
+                      <Icon n="msg" size={13} color={comments[p.id]?G:mid}/> {(cmtList[p.id]||[]).length}
                     </button>
                     <button onClick={()=>setDmPost(p)} style={{ display:"flex", alignItems:"center", gap:4, padding:"6px 12px", borderRadius:20, border:"1.5px solid "+bdr, background:"transparent", color:mid, cursor:"pointer", fontSize:12, fontWeight:600 }}>
                       <Icon n="send" size={13} color={mid}/>
@@ -903,11 +914,12 @@ const filtPosts = posts.filter(p=>{
                   </div>
                   {comments[p.id]&&(
                     <div style={{ marginTop:12, paddingTop:12, borderTop:"1px solid "+bdr }}>
-                      {[{ini:"JV",col:AVC[1],txt:lang==="NL"?"Morgen beschikbaar!":"Available tomorrow!"},{ini:"MS",col:AVC[2],txt:lang==="NL"?"Beterschap!":"Hope it gets resolved soon!"}].map((c,ci)=>(
+                      {(cmtList[p.id]||[]).map((c,ci)=>(
                         <div key={ci} style={{ display:"flex", gap:8, marginBottom:10 }}>
                           <div style={{ width:28, height:28, borderRadius:"50%", background:c.col, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:700, color:"#fff", flexShrink:0 }}>{c.ini}</div>
                           <div style={{ flex:1 }}>
                             <div style={{ background:warm, borderRadius:"4px 12px 12px 12px", padding:"8px 12px" }}>
+                              <div style={{ fontSize:11, fontWeight:700, color:G, marginBottom:4 }}>{c.name||c.ini}</div>
                               <p style={{ margin:0, fontSize:13, color:ink, lineHeight:1.5 }}>{c.txt}</p>
                             </div>
                           </div>
@@ -917,7 +929,7 @@ const filtPosts = posts.filter(p=>{
                         <div style={{ width:28, height:28, borderRadius:"50%", background:G, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:700, color:"#fff", flexShrink:0 }}>{displayIni}</div>
                         <div style={{ flex:1, display:"flex", gap:6, background:warm, border:"1.5px solid "+bdr, borderRadius:20, padding:"6px 6px 6px 12px", alignItems:"center" }}>
                           <input value={cmtInput[p.id]||""} onChange={e=>setCmtInput(prev=>({...prev,[p.id]:e.target.value}))} placeholder={lang==="NL"?"Schrijf een reactie...":"Write a comment..."} style={{ flex:1, border:"none", outline:"none", background:"transparent", fontSize:13, color:ink, fontFamily:"DM Sans,sans-serif" }}/>
-                          <button style={{ width:28, height:28, borderRadius:"50%", background:G, border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                          <button onClick={()=>{ if(cmtInput[p.id]?.trim()){ saveComment(p.id,user?.id,displayName,cmtInput[p.id]); setCmtList(prev=>({...prev,[p.id]:[...(prev[p.id]||[]),{txt:cmtInput[p.id],ini:displayIni,name:displayName,col:G}]})); setCmtInput(prev=>({...prev,[p.id]:""})); } }} style={{ width:28, height:28, borderRadius:"50%", background:G, border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
                             <Icon n="send" size={13} color="#fff"/>
                           </button>
                         </div>
