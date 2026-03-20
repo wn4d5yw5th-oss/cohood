@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from './supabase';
 import { saveComment, getComments } from './comments';
 import { createPost, getPosts } from './posts';
+import { sendMessage, getMessages } from './messages';
 import { toggleLike, getLikes, getUserLikes } from './likes';
 import { signUp, signIn, resetPassword } from './auth';
 
@@ -754,6 +755,8 @@ useEffect(()=>{
   const [langOpen, setLangOpen] = useState(false);
   const [profile, setProfile] = useState(null);
   const [realPosts, setRealPosts] = useState([]);
+  const [realMessages, setRealMessages] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [profileLoading, setProfileLoading] = useState(true);
   const [showEditProfile, setShowEditProfile] = useState(false);
 
@@ -793,7 +796,7 @@ useEffect(()=>{
   if(displayHood){
     getPosts(displayHood).then(({data})=>{
       if(data) setRealPosts(data.map(p=>({
-        id:p.id, type:p.type||"help", user:p.full_name||"User",
+        id:p.id, user_id:p.user_id, type:p.type||"help", user:p.full_name||"User",
         ini:(p.full_name||"U")[0].toUpperCase(), ver:false,
         time: (() => { const diff = Math.floor((Date.now() - new Date(p.created_at).getTime()) / 60000); if(diff < 1) return "just now"; if(diff < 60) return diff + " min"; if(diff < 1440) return Math.floor(diff/60) + " hr"; return Math.floor(diff/1440) + " days"; })(), cat:p.category||"", icon:"tool",
         body:p.body, offer:p.offer, likes:0, replies:0,
@@ -808,6 +811,16 @@ useEffect(()=>{
     });
   }
 },[displayHood]);
+useEffect(()=>{
+  if(user?.id){
+    getMessages(user.id).then(({data})=>{
+      if(data){
+        setRealMessages(data);
+        setUnreadCount(data.filter(m=>m.receiver_id===user.id&&!m.read).length);
+      }
+    });
+  }
+},[user]);
   const displayIni = displayName[0]?.toUpperCase()||"U";
 
   const requireVer = (fn) => { if(verified) fn(); else setShowVer(true); };
@@ -816,7 +829,7 @@ useEffect(()=>{
     setTimeout(()=>{ setTranslated(p=>({...p,[id]:body+" ["+t.translate+"d]"})); setTranslating(p=>({...p,[id]:false})); },900);
   };
   const submitHelp = () => requireVer(async()=>{ await createPost(user?.id, displayName, displayHood, "help", t.helpCats[needCat]||"", needTxt, offerTxt, isUrgent); setSuccess("help"); setTimeout(()=>{ setSuccess(null); setTab("feed"); setNeedCat(null); setNeedTxt(""); setOfferCat(null); setOfferTxt(""); setIsUrgent(false); },2000); });  const submitEv = () => requireVer(()=>{ setSuccess("ev"); setTimeout(()=>{ setSuccess(null); setTab("feed"); setEvType(null); setEvName(""); setEvDate(""); setEvLoc(""); },2000); });
-  const sendDm = () => { setDmSent(true); setTimeout(()=>{ setDmSent(false); setDmPost(null); setDmText(""); },1800); };
+  const sendDm = async() => { if(dmText.trim()){ await sendMessage(user?.id, dmPost?.user_id||dmPost?.id, displayName, dmPost?.id, dmText); setDmSent(true); setTimeout(()=>{ setDmSent(false); setDmPost(null); setDmText(""); },1800); } };
 const userHood = profile?.neighborhood || user?.user_metadata?.neighborhood;
 const allPosts = [...realPosts, ...posts.filter(p=>p.hood===displayHood||p.hood==="All Neighborhood"||p.hood==="Hele Buurt")];  
 const filtPosts = allPosts.filter(p=>{
@@ -881,7 +894,7 @@ const filtPosts = allPosts.filter(p=>{
             </div>
             {filtPosts.map((p,i)=>{
               const tc=TCAT[p.type]||TCAT.announce;
-              const ac=AVC[i%AVC.length];
+              const ac = AVC[p.user?.charCodeAt(0)%AVC.length||0];
               return (
                 <div key={p.id} style={{ background:card, border:"1px solid "+bdr, borderRadius:16, padding:16, marginBottom:12, boxShadow:"0 1px 6px rgba(0,0,0,.04)" }}>
                   <div style={{ display:"flex", gap:10, marginBottom:10 }}>
@@ -944,9 +957,9 @@ const filtPosts = allPosts.filter(p=>{
                     <button onClick={()=>setDmPost(p)} style={{ display:"flex", alignItems:"center", gap:4, padding:"6px 12px", borderRadius:20, border:"1.5px solid "+bdr, background:"transparent", color:mid, cursor:"pointer", fontSize:12, fontWeight:600 }}>
                       <Icon n="send" size={13} color={mid}/>
                     </button>
-                    <button style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:5, padding:"6px 14px", borderRadius:20, border:"none", background:G, color:"#fff", cursor:"pointer", fontSize:12, fontWeight:700 }}>
+                    {p.user_id !== user?.id && <button onClick={()=>setDmPost(p)} style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:5, padding:"6px 14px", borderRadius:20, border:"none", background:G, color:"#fff", cursor:"pointer", fontSize:12, fontWeight:700 }}>
                       {p.type==="event"?t.join:t.respond}<Icon n="chevronRight" size={13} color="#fff"/>
-                    </button>
+                    </button>}
                   </div>
                   {comments[p.id]&&(
                     <div style={{ marginTop:12, paddingTop:12, borderTop:"1px solid "+bdr }}>
@@ -1085,26 +1098,23 @@ const filtPosts = allPosts.filter(p=>{
         {tab==="messages"&&(
           <div style={{ padding:"18px 16px" }}>
             <h2 style={{ margin:"0 0 18px", fontSize:20, fontWeight:700, color:ink, fontFamily:"Playfair Display,serif" }}>{t.msgTitle}</h2>
-            {CONVS.map((c,i)=>(
-              <div key={c.id} onClick={()=>setActiveConv(c)} style={{ display:"flex", gap:12, alignItems:"center", padding:"13px 0", borderBottom:"1px solid "+bdr, cursor:"pointer" }}>
-                <Av ini={c.ini} size={46} col={c.col} ver={c.ver}/>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                    <span style={{ fontSize:14, fontWeight:c.unread?700:600, color:ink }}>{c.name}</span>
-                    <span style={{ fontSize:11, color:mid }}>{t.convTime[i]}</span>
-                  </div>
-                  <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-                    {c.mine&&<Icon n="check" size={12} color={G} sw={2.5}/>}
-                    <span style={{ fontSize:13, color:c.unread?ink:mid, fontWeight:c.unread?600:400, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:210 }}>{t.convLast[i]}</span>
-                  </div>
-                </div>
-                {c.unread>0&&(
-                  <div style={{ width:20, height:20, borderRadius:"50%", background:G, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                    <span style={{ fontSize:11, fontWeight:700, color:"#fff" }}>{c.unread}</span>
-                  </div>
-                )}
-              </div>
-            ))}
+            {realMessages.length>0?realMessages.map((m,i)=>(
+  <div key={m.id} onClick={()=>setActiveConv(m)} style={{ display:"flex", gap:12, alignItems:"center", padding:"13px 0", borderBottom:"1px solid "+bdr, cursor:"pointer" }}>
+    <Av ini={(m.sender_id===user?.id?m.receiver_name||"?":m.sender_name||"?")[0]?.toUpperCase()||"?"} size={46} col={AVC[i%AVC.length]} ver={false}/>
+    <div style={{ flex:1, minWidth:0 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+        <span style={{ fontSize:14, fontWeight:!m.read&&m.receiver_id===user?.id?700:600, color:ink }}>{m.sender_id===user?.id?"You":m.sender_name||"User"}</span>
+        <span style={{ fontSize:11, color:mid }}>{new Date(m.created_at).toLocaleDateString()}</span>
+      </div>
+      <span style={{ fontSize:13, color:!m.read&&m.receiver_id===user?.id?ink:mid, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"block", maxWidth:210 }}>{m.content}</span>
+    </div>
+    {!m.read&&m.receiver_id===user?.id&&(
+      <div style={{ width:20, height:20, borderRadius:"50%", background:G, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+        <span style={{ fontSize:11, fontWeight:700, color:"#fff" }}>1</span>
+      </div>
+    )}
+  </div>
+)):<div style={{ textAlign:"center", padding:"40px 0", color:mid, fontSize:14 }}>No messages yet</div>}
           </div>
         )}
 
@@ -1202,7 +1212,7 @@ const filtPosts = allPosts.filter(p=>{
         <NavBtn k="feed" icon="home" label={t.feed}/>
         <NavBtn k="share" icon="send" label={t.share}/>
         <NavBtn k="events" icon="calendar" label={t.events}/>
-        <NavBtn k="messages" icon="msg" label={t.messages} badge={3}/>
+        <NavBtn k="messages" icon="msg" label={t.messages} badge={unreadCount}/>
         <NavBtn k="profile" icon="user" label={t.profile}/>
       </div>
 
