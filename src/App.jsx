@@ -869,7 +869,7 @@ setTranslated(p=>({...p,[id]:{body:translatedBody, offer:translatedOffer}}));
   setTranslating(p=>({...p,[id]:false}));
 };
   const submitHelp = () => requireVer(async()=>{ await createPost(user?.id, displayName, displayHood, "help", t.helpCats[needCat]||"", needTxt, offerTxt, isUrgent); setSuccess("help"); setTimeout(()=>{ setSuccess(null); setTab("feed"); setNeedCat(null); setNeedTxt(""); setOfferCat(null); setOfferTxt(""); setIsUrgent(false); },2000); });  const submitEv = () => requireVer(()=>{ setSuccess("ev"); setTimeout(()=>{ setSuccess(null); setTab("feed"); setEvType(null); setEvName(""); setEvDate(""); setEvLoc(""); },2000); });
-  const sendDm = async() => { if(dmText.trim()){ await sendMessage(user?.id, dmPost?.user_id||dmPost?.id, displayName, dmPost?.user||"User", dmPost?.id, dmText); setDmSent(true); setTimeout(()=>{ setDmSent(false); setDmPost(null); setDmText(""); },1800); } };
+  const sendDm = async() => { if(dmText.trim()){ await sendMessage(user?.id, dmPost?.user_id||dmPost?.id, displayName, dmPost?.user||"User", dmPost?.id, dmText, profile?.avatar_url); setDmSent(true); setTimeout(()=>{ setDmSent(false); setDmPost(null); setDmText(""); },1800); } };
 const userHood = profile?.neighborhood || user?.user_metadata?.neighborhood;
 const allPosts = [...realPosts, ...posts.filter(p=>p.hood===displayHood||p.hood==="All Neighborhood"||p.hood==="Hele Buurt")];  
 const filtPosts = allPosts.filter(p=>{
@@ -1140,7 +1140,7 @@ const filtPosts = allPosts.filter(p=>{
             <h2 style={{ margin:"0 0 18px", fontSize:20, fontWeight:700, color:ink, fontFamily:"Playfair Display,serif" }}>{t.msgTitle}</h2>
             {realMessages.length>0?realMessages.map((m,i)=>(
   <div key={m.id} onClick={()=>{ setActiveConv(m); if(!m.read&&m.receiver_id===user?.id){ supabase.from("messages").update({read:true}).eq("id",m.id).then(()=>setUnreadCount(prev=>Math.max(0,prev-1))); } }} style={{ display:"flex", gap:12, alignItems:"center", padding:"13px 0", borderBottom:"1px solid "+bdr, cursor:"pointer" }}>
-    <Av ini={(m.sender_id===user?.id?m.receiver_name||"?":m.sender_name||"?")[0]?.toUpperCase()||"?"} size={46} col={AVC[i%AVC.length]} ver={false}/>
+    <Av ini={(m.sender_id===user?.id?m.receiver_name||"?":m.sender_name||"?")[0]?.toUpperCase()||"?"} size={46} col={AVC[i%AVC.length]} ver={false} imgUrl={m.other_avatar}/>
     <div style={{ flex:1, minWidth:0 }}>
       <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
         <span style={{ fontSize:14, fontWeight:!m.read&&m.receiver_id===user?.id?700:600, color:ink }}>{m.sender_id===user?.id ? m.receiver_name||"User" : m.sender_name||"User"}</span>
@@ -1276,7 +1276,7 @@ const filtPosts = allPosts.filter(p=>{
             <button onClick={()=>setActiveConv(null)} style={{ border:"none", background:"none", cursor:"pointer", padding:4, display:"flex" }}>
               <Icon n="back" size={20} color={ink}/>
             </button>
-            <Av ini={activeConv.ini} size={36} col={activeConv.col} ver={activeConv.ver}/>
+            <Av ini={(activeConv.sender_id===user?.id?activeConv.receiver_name||"?":activeConv.sender_name||"?")[0]?.toUpperCase()||"?"} size={36} col={G} ver={false} imgUrl={activeConv.other_avatar}/>
             <div>
               <div style={{ fontSize:14, fontWeight:700, color:ink }}>{activeConv.sender_id===user?.id ? activeConv.receiver_name||"User" : activeConv.sender_name||"User"}</div>
               <div style={{ fontSize:11, color:G, fontWeight:600 }}>{activeConv.last_seen ? (Date.now()-new Date(activeConv.last_seen).getTime()<300000?"Online":"Last seen "+Math.floor((Date.now()-new Date(activeConv.last_seen).getTime())/60000)+" min ago") : "Online"}</div>
@@ -1299,7 +1299,7 @@ const filtPosts = allPosts.filter(p=>{
             <div style={{ flex:1, background:warm, border:"1.5px solid "+bdr, borderRadius:24, padding:"10px 16px" }}>
               <input value={convMsg} onChange={e=>setConvMsg(e.target.value)} placeholder={t.msgPh} style={{ width:"100%", border:"none", outline:"none", background:"transparent", fontSize:14, color:ink, fontFamily:"DM Sans,sans-serif" }}/>
             </div>
-            <button onClick={async()=>{ if(convMsg.trim()){ await sendMessage(user?.id, activeConv.sender_id===user?.id?activeConv.receiver_id:activeConv.sender_id, displayName, activeConv.sender_id===user?.id?activeConv.receiver_name||"User":activeConv.sender_name||"User", null, convMsg); setConvMessages(prev=>[...prev,{id:Date.now(),sender_id:user?.id,receiver_id:activeConv.sender_id===user?.id?activeConv.receiver_id:activeConv.sender_id,content:convMsg,created_at:new Date().toISOString()}]); setConvMsg(""); } }} style={{ width:42, height:42, borderRadius:"50%", background:G, border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <button onClick={async()=>{ if(convMsg.trim()){ await sendMessage(user?.id, activeConv.sender_id===user?.id?activeConv.receiver_id:activeConv.sender_id, displayName, activeConv.sender_id===user?.id?activeConv.receiver_name||"User":activeConv.sender_name||"User", null, convMsg, profile?.avatar_url); setConvMessages(prev=>[...prev,{id:Date.now(),sender_id:user?.id,receiver_id:activeConv.sender_id===user?.id?activeConv.receiver_id:activeConv.sender_id,content:convMsg,created_at:new Date().toISOString()}]); setConvMsg(""); } }} style={{ width:42, height:42, borderRadius:"50%", background:G, border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
               <Icon n="send" size={16} color="#fff"/>
             </button>
           </div>
