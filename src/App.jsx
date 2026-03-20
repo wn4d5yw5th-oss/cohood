@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from './supabase';
 import { saveComment, getComments } from './comments';
+import { createPost, getPosts } from './posts';
 import { toggleLike, getLikes, getUserLikes } from './likes';
 import { signUp, signIn, resetPassword } from './auth';
 
@@ -711,7 +712,7 @@ function App2({ lang, setLang, onLogout, dm, setDm, verified, setVerified, user 
   const [cmtList, setCmtList] = useState({});
   useEffect(()=>{
   if(posts.length){
-    posts.forEach(p=>{
+    [...posts,...realPosts].forEach(p=>{
       supabase.from("comments").select("*").eq("post_id",p.id).order("created_at").then(({data})=>{
         if(data&&data.length) setCmtList(prev=>({...prev,[p.id]:data.map(c=>({txt:c.content,name:c.full_name,ini:c.full_name?c.full_name[0]:"?",col:G}))}));
       });
@@ -725,7 +726,7 @@ useEffect(()=>{
       likedPosts.forEach(id=>{obj[String(id)]=true;});
       setLiked(obj);
     });
-    posts.forEach(p=>{
+    [...posts,...realPosts].forEach(p=>{
       getLikes(p.id).then(count=>{
         setLikeCounts(prev=>({...prev,[p.id]:count}));
       });
@@ -752,6 +753,7 @@ useEffect(()=>{
   const [success, setSuccess] = useState(null);
   const [langOpen, setLangOpen] = useState(false);
   const [profile, setProfile] = useState(null);
+  const [realPosts, setRealPosts] = useState([]);
   const [profileLoading, setProfileLoading] = useState(true);
   const [showEditProfile, setShowEditProfile] = useState(false);
 
@@ -787,6 +789,25 @@ useEffect(()=>{
 
   const displayName = profile?.full_name||user?.user_metadata?.full_name||"User";
   const displayHood = profile?.neighborhood||user?.user_metadata?.neighborhood||"Amsterdam";
+  useEffect(()=>{
+  if(displayHood){
+    getPosts(displayHood).then(({data})=>{
+      if(data) setRealPosts(data.map(p=>({
+        id:p.id, type:p.type||"help", user:p.full_name||"User",
+        ini:(p.full_name||"U")[0].toUpperCase(), ver:false,
+        time: (() => { const diff = Math.floor((Date.now() - new Date(p.created_at).getTime()) / 60000); if(diff < 1) return "just now"; if(diff < 60) return diff + " min"; if(diff < 1440) return Math.floor(diff/60) + " hr"; return Math.floor(diff/1440) + " days"; })(), cat:p.category||"", icon:"tool",
+        body:p.body, offer:p.offer, likes:0, replies:0,
+        urgent:p.urgent, hood:p.neighborhood
+      })));
+      if(data) data.forEach(p=>{
+  getLikes(p.id).then(count=>{ setLikeCounts(prev=>({...prev,[p.id]:count})); });
+  supabase.from("comments").select("*").eq("post_id",p.id).order("created_at").then(({data:c})=>{
+    if(c&&c.length) setCmtList(prev=>({...prev,[p.id]:c.map(x=>({txt:x.content,name:x.full_name,ini:x.full_name?x.full_name[0]:"?",col:G}))}));
+  });
+});
+    });
+  }
+},[displayHood]);
   const displayIni = displayName[0]?.toUpperCase()||"U";
 
   const requireVer = (fn) => { if(verified) fn(); else setShowVer(true); };
@@ -794,14 +815,13 @@ useEffect(()=>{
     setTranslating(p=>({...p,[id]:true}));
     setTimeout(()=>{ setTranslated(p=>({...p,[id]:body+" ["+t.translate+"d]"})); setTranslating(p=>({...p,[id]:false})); },900);
   };
-  const submitHelp = () => requireVer(()=>{ setSuccess("help"); setTimeout(()=>{ setSuccess(null); setTab("feed"); setNeedCat(null); setNeedTxt(""); setOfferCat(null); setOfferTxt(""); setIsUrgent(false); },2000); });
-  const submitEv = () => requireVer(()=>{ setSuccess("ev"); setTimeout(()=>{ setSuccess(null); setTab("feed"); setEvType(null); setEvName(""); setEvDate(""); setEvLoc(""); },2000); });
+  const submitHelp = () => requireVer(async()=>{ await createPost(user?.id, displayName, displayHood, "help", t.helpCats[needCat]||"", needTxt, offerTxt, isUrgent); setSuccess("help"); setTimeout(()=>{ setSuccess(null); setTab("feed"); setNeedCat(null); setNeedTxt(""); setOfferCat(null); setOfferTxt(""); setIsUrgent(false); },2000); });  const submitEv = () => requireVer(()=>{ setSuccess("ev"); setTimeout(()=>{ setSuccess(null); setTab("feed"); setEvType(null); setEvName(""); setEvDate(""); setEvLoc(""); },2000); });
   const sendDm = () => { setDmSent(true); setTimeout(()=>{ setDmSent(false); setDmPost(null); setDmText(""); },1800); };
 const userHood = profile?.neighborhood || user?.user_metadata?.neighborhood;
-const filtPosts = posts.filter(p=>{
-  const hoodMatch = !userHood || userHood==="Amsterdam" || p.hood===userHood || p.hood==="All Neighborhood" || p.hood==="Hele Buurt";
+const allPosts = [...realPosts, ...posts.filter(p=>p.hood===displayHood||p.hood==="All Neighborhood"||p.hood==="Hele Buurt")];  
+const filtPosts = allPosts.filter(p=>{
   const typeMatch = filter==="all"||(filter==="help"&&p.type==="help")||(filter==="event"&&p.type==="event");
-  return hoodMatch && typeMatch;
+  return typeMatch;
 });
 
   const NavBtn = ({ k, icon, label, badge }) => (
