@@ -77,12 +77,12 @@ const AMSTERDAM_HOODS = [
   "Borneo-eiland","Overhoeks","Buiksloterham","Nieuwendam"
 ];
 
-const Av = ({ ini, size=40, col=G, ver=false }) => (
+const Av = ({ ini, size=40, col=G, ver=false, imgUrl=null }) => (
   <span style={{ position:"relative", display:"inline-flex", flexShrink:0 }}>
-    <span style={{ width:size, height:size, borderRadius:"50%", background:col, display:"flex", alignItems:"center", justifyContent:"center", fontSize:size*0.33, fontWeight:700, color:"#fff", fontFamily:"DM Sans,sans-serif" }}>
-      {ini}
+    <span style={{ width:size, height:size, borderRadius:"50%", background:col, display:"flex", alignItems:"center", justifyContent:"center", fontSize:size*0.33, fontWeight:700, color:"#fff", fontFamily:"DM Sans,sans-serif", overflow:"hidden" }}>
+      {imgUrl ? <img src={imgUrl} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }}/> : ini}
     </span>
-    {ver && <span style={{ position:"absolute", bottom:0, right:-4 }}><VerBadge size={size*.42}/></span>}
+    {ver && <span style={{ position:"absolute", bottom:-2, right:-2 }}><VerBadge size={size*.42}/></span>}
   </span>
 );
 
@@ -715,7 +715,14 @@ function App2({ lang, setLang, onLogout, dm, setDm, verified, setVerified, user 
   if(posts.length){
     [...posts,...realPosts].forEach(p=>{
       supabase.from("comments").select("*").eq("post_id",p.id).order("created_at").then(({data})=>{
-        if(data&&data.length) setCmtList(prev=>({...prev,[p.id]:data.map(c=>({txt:c.content,name:c.full_name,ini:c.full_name?c.full_name[0]:"?",col:G}))}));
+        if(data&&data.length){ 
+  const uids=[...new Set(data.map(c=>c.user_id).filter(Boolean))];
+  supabase.from('profiles').select('id,avatar_url').in('id',uids).then(({data:profs})=>{
+    const pm={};
+    if(profs) profs.forEach(p=>pm[p.id]=p.avatar_url);
+    setCmtList(prev=>({...prev,[p.id]:data.map(c=>({txt:c.content,name:c.full_name,ini:c.full_name?c.full_name[0]:"?",col:G,imgUrl:pm[c.user_id]||c.avatar_url}))}));
+  });
+}
       });
     });
   }
@@ -806,8 +813,8 @@ useEffect(()=>{
       })));
       if(data) data.forEach(p=>{
   getLikes(p.id).then(count=>{ setLikeCounts(prev=>({...prev,[p.id]:count})); });
-  supabase.from("comments").select("*").eq("post_id",p.id).order("created_at").then(({data:c})=>{
-    if(c&&c.length) setCmtList(prev=>({...prev,[p.id]:c.map(x=>({txt:x.content,name:x.full_name,ini:x.full_name?x.full_name[0]:"?",col:G}))}));
+  supabase.from("comments").select("*").eq("post_id",String(p.id)).order("created_at").then(({data:c})=>{
+    if(c&&c.length) setCmtList(prev=>({...prev,[p.id]:c.map(x=>({txt:x.content,name:x.full_name,ini:x.full_name?x.full_name[0]:"?",col:G,imgUrl:x.avatar_url}))}));
   });
 });
     });
@@ -835,10 +842,31 @@ useEffect(()=>{
   const displayIni = displayName[0]?.toUpperCase()||"U";
 
   const requireVer = (fn) => { if(verified) fn(); else setShowVer(true); };
-  const doTranslate = (id,body) => {
-    setTranslating(p=>({...p,[id]:true}));
-    setTimeout(()=>{ setTranslated(p=>({...p,[id]:body+" ["+t.translate+"d]"})); setTranslating(p=>({...p,[id]:false})); },900);
-  };
+  const doTranslate = async(id,body,offer) => {
+  setTranslating(p=>({...p,[id]:true}));
+  const srcLang = lang==="NL"?"nl":"en";
+  const targetLang = lang==="NL"?"en":"nl";
+  try {
+    const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(body)}&langpair=nl|en`);
+const data = await res.json();
+let translatedBody = data.responseData.translatedText;
+if(translatedBody.toLowerCase()===body.toLowerCase()){
+  const res3 = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(body)}&langpair=en|nl`);
+  const data3 = await res3.json();
+  translatedBody = data3.responseData.translatedText;
+}
+let translatedOffer = offer;
+if(offer){
+  const res2 = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(offer)}&langpair=nl|en`);
+  const data2 = await res2.json();
+  translatedOffer = data2.responseData.translatedText;
+}
+setTranslated(p=>({...p,[id]:{body:translatedBody, offer:translatedOffer}}));
+  } catch(e) {
+    setTranslated(p=>({...p,[id]:{body:body+" [translated]", offer:offer}}));
+  }
+  setTranslating(p=>({...p,[id]:false}));
+};
   const submitHelp = () => requireVer(async()=>{ await createPost(user?.id, displayName, displayHood, "help", t.helpCats[needCat]||"", needTxt, offerTxt, isUrgent); setSuccess("help"); setTimeout(()=>{ setSuccess(null); setTab("feed"); setNeedCat(null); setNeedTxt(""); setOfferCat(null); setOfferTxt(""); setIsUrgent(false); },2000); });  const submitEv = () => requireVer(()=>{ setSuccess("ev"); setTimeout(()=>{ setSuccess(null); setTab("feed"); setEvType(null); setEvName(""); setEvDate(""); setEvLoc(""); },2000); });
   const sendDm = async() => { if(dmText.trim()){ await sendMessage(user?.id, dmPost?.user_id||dmPost?.id, displayName, dmPost?.user||"User", dmPost?.id, dmText); setDmSent(true); setTimeout(()=>{ setDmSent(false); setDmPost(null); setDmText(""); },1800); } };
 const userHood = profile?.neighborhood || user?.user_metadata?.neighborhood;
@@ -934,13 +962,13 @@ const filtPosts = allPosts.filter(p=>{
                       </div>
                     </div>
                   </div>
-                  <p style={{ margin:"0 0 8px", fontSize:14, color:mid, lineHeight:1.6 }}>{translated[p.id]||p.body}</p>
+                  <p style={{ margin:"0 0 8px", fontSize:14, color:mid, lineHeight:1.6 }}>{translated[p.id]?.body||p.body}</p>
                   {p.offer&&(
                     <div style={{ background:dm?"rgba(90,58,122,.15)":PUL, border:"1px solid "+PU+"20", borderRadius:10, padding:"10px 12px", marginBottom:8 }}>
                       <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
                         <Icon n="hands" size={13} color={PU}/><span style={{ fontSize:11, fontWeight:700, color:PU, letterSpacing:.5 }}>{t.offerTitle.toUpperCase()}</span>
                       </div>
-                      <p style={{ margin:0, fontSize:13, color:dm?"#C4B0D8":PU, lineHeight:1.5 }}>{p.offer}</p>
+                      <p style={{ margin:0, fontSize:13, color:dm?"#C4B0D8":PU, lineHeight:1.5 }}>{translated[p.id]?.offer||p.offer}</p>
                     </div>
                   )}
                   {p.date&&(
@@ -949,7 +977,7 @@ const filtPosts = allPosts.filter(p=>{
                     </div>
                   )}
                   {!translated[p.id]?(
-                    <button onClick={()=>doTranslate(p.id,p.body)} style={{ display:"flex", alignItems:"center", gap:5, marginBottom:10, padding:"4px 10px", borderRadius:20, border:"1px solid "+bdr, background:"transparent", color:mid, cursor:"pointer", fontSize:11, fontWeight:600 }}>
+                    <button onClick={()=>doTranslate(p.id, p.body, p.offer)} style={{ display:"flex", alignItems:"center", gap:5, marginBottom:10, padding:"4px 10px", borderRadius:20, border:"1px solid "+bdr, background:"transparent", color:mid, cursor:"pointer", fontSize:11, fontWeight:600 }}>
                       <Icon n="globe" size={12} color={mid}/> {translating[p.id]?t.translating:t.translate}
                     </button>
                   ):(
@@ -976,7 +1004,7 @@ const filtPosts = allPosts.filter(p=>{
                     <div style={{ marginTop:12, paddingTop:12, borderTop:"1px solid "+bdr }}>
                       {(cmtList[p.id]||[]).map((c,ci)=>(
                         <div key={ci} style={{ display:"flex", gap:8, marginBottom:10 }}>
-                          <div style={{ width:28, height:28, borderRadius:"50%", background:c.col, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:700, color:"#fff", flexShrink:0 }}>{c.ini}</div>
+                          <Av ini={c.ini} size={28} col={c.col} imgUrl={c.imgUrl}/>
                           <div style={{ flex:1 }}>
                             <div style={{ background:warm, borderRadius:"4px 12px 12px 12px", padding:"8px 12px" }}>
                               <div style={{ fontSize:11, fontWeight:700, color:G, marginBottom:4 }}>{c.name||c.ini}</div>
@@ -986,10 +1014,10 @@ const filtPosts = allPosts.filter(p=>{
                         </div>
                       ))}
                       <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-                        <div style={{ width:28, height:28, borderRadius:"50%", background:G, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:700, color:"#fff", flexShrink:0 }}>{displayIni}</div>
+                        <Av ini={displayIni} size={28} col={G} imgUrl={profile?.avatar_url}/>
                         <div style={{ flex:1, display:"flex", gap:6, background:warm, border:"1.5px solid "+bdr, borderRadius:20, padding:"6px 6px 6px 12px", alignItems:"center" }}>
                           <input value={cmtInput[p.id]||""} onChange={e=>setCmtInput(prev=>({...prev,[p.id]:e.target.value}))} placeholder={lang==="NL"?"Schrijf een reactie...":"Write a comment..."} style={{ flex:1, border:"none", outline:"none", background:"transparent", fontSize:13, color:ink, fontFamily:"DM Sans,sans-serif" }}/>
-                          <button onClick={()=>{ if(cmtInput[p.id]?.trim()){ saveComment(p.id,user?.id,displayName,cmtInput[p.id]); setCmtList(prev=>({...prev,[p.id]:[...(prev[p.id]||[]),{txt:cmtInput[p.id],ini:displayIni,name:displayName,col:G}]})); setCmtInput(prev=>({...prev,[p.id]:""})); } }} style={{ width:28, height:28, borderRadius:"50%", background:G, border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                          <button onClick={()=>{ if(cmtInput[p.id]?.trim()){ saveComment(p.id,user?.id,displayName,cmtInput[p.id],profile?.avatar_url); setCmtList(prev=>({...prev,[p.id]:[...(prev[p.id]||[]),{txt:cmtInput[p.id],ini:displayIni,name:displayName,col:G,imgUrl:profile?.avatar_url}]})); setCmtInput(prev=>({...prev,[p.id]:""})); } }} style={{ width:28, height:28, borderRadius:"50%", background:G, border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
                             <Icon n="send" size={13} color="#fff"/>
                           </button>
                         </div>
@@ -1135,7 +1163,21 @@ const filtPosts = allPosts.filter(p=>{
               <div style={{ position:"absolute", right:-20, top:-20, width:100, height:100, borderRadius:"50%", background:"rgba(255,255,255,.07)" }}/>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                 <div>
-                  <Av ini={displayIni} size={54} col="rgba(255,255,255,.2)" ver={verified}/>
+                  <div style={{ position:"relative", display:"inline-flex" }}>
+  <Av ini={displayIni} size={54} col="rgba(255,255,255,.2)" ver={verified} imgUrl={profile?.avatar_url}/>
+  <label htmlFor="profile-photo" style={{ position:"absolute", bottom:-4, right:-4, width:22, height:22, background:G, borderRadius:"50%", border:"2px solid #fff", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}>
+    <Icon n="camera" size={11} color="#fff"/>
+  </label>
+  <input id="profile-photo" type="file" accept="image/*" style={{ display:"none" }} onChange={async(e)=>{
+    const file=e.target.files[0]; if(!file) return;
+    const ext=file.name.split('.').pop();
+    const fileName=user?.id+'/'+Date.now()+'.'+ext;
+    const {error}=await supabase.storage.from('avatars').upload(fileName,file,{upsert:true});
+    console.log("upload result:", error);
+    if(!error){ const {data}=supabase.storage.from('avatars').getPublicUrl(fileName); setProfile(prev=>({...prev,avatar_url:data.publicUrl})); await supabase.from('profiles').update({avatar_url:data.publicUrl}).eq('id',user?.id); }
+    else alert(error.message);
+  }}/>
+</div>
                   <div style={{ fontSize:20, fontWeight:700, color:"#fff", marginTop:10, fontFamily:"Playfair Display,serif" }}>{displayName}</div>
                   <div style={{ display:"flex", alignItems:"center", gap:5, marginTop:4, color:"rgba(255,255,255,.75)", fontSize:13 }}>
                     <Icon n="mapPin" size={13} color="rgba(255,255,255,.75)"/> {displayHood}, Amsterdam
