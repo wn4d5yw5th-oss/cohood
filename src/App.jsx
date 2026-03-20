@@ -809,7 +809,8 @@ useEffect(()=>{
         ini:(p.full_name||"U")[0].toUpperCase(), ver:false,
         time: (() => { const diff = Math.floor((Date.now() - new Date(p.created_at).getTime()) / 60000); if(diff < 1) return "just now"; if(diff < 60) return diff + " min"; if(diff < 1440) return Math.floor(diff/60) + " hr"; return Math.floor(diff/1440) + " days"; })(), cat:p.category||"", icon:"tool",
         body:p.body, offer:p.offer, likes:0, replies:0,
-        urgent:p.urgent, hood:p.neighborhood
+        urgent:p.urgent, hood:p.neighborhood,
+        avatar_url:p.avatar_url
       })));
       if(data) data.forEach(p=>{
   getLikes(p.id).then(count=>{ setLikeCounts(prev=>({...prev,[p.id]:count})); });
@@ -937,7 +938,7 @@ const filtPosts = allPosts.filter(p=>{
               return (
                 <div key={p.id} style={{ background:card, border:"1px solid "+bdr, borderRadius:16, padding:16, marginBottom:12, boxShadow:"0 1px 6px rgba(0,0,0,.04)" }}>
                   <div style={{ display:"flex", gap:10, marginBottom:10 }}>
-                    <Av ini={p.ini} size={42} col={ac} ver={p.ver}/>
+                    <Av ini={p.ini} size={42} col={ac} ver={p.ver} imgUrl={p.avatar_url}/>
                     <div style={{ flex:1 }}>
                       <div style={{ display:"flex", justifyContent:"space-between" }}>
                         <div>
