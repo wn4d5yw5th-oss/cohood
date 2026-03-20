@@ -994,9 +994,8 @@ const filtPosts = allPosts.filter(p=>{
                     <button onClick={()=>setComments(prev=>({...prev,[p.id]:!prev[p.id]}))} style={{ display:"flex", alignItems:"center", gap:4, padding:"6px 12px", borderRadius:20, border:"1.5px solid "+(comments[p.id]?G:bdr), background:comments[p.id]?GL:"transparent", color:comments[p.id]?G:mid, cursor:"pointer", fontSize:12, fontWeight:600, transition:"all .2s" }}>
                       <Icon n="msg" size={13} color={comments[p.id]?G:mid}/> {(cmtList[p.id]||[]).length}
                     </button>
-                    <button onClick={()=>setDmPost(p)} style={{ display:"flex", alignItems:"center", gap:4, padding:"6px 12px", borderRadius:20, border:"1.5px solid "+bdr, background:"transparent", color:mid, cursor:"pointer", fontSize:12, fontWeight:600 }}>
-                      <Icon n="send" size={13} color={mid}/>
-                    </button>
+                  
+                  
                     {p.user_id !== user?.id && <button onClick={()=>setDmPost(p)} style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:5, padding:"6px 14px", borderRadius:20, border:"none", background:G, color:"#fff", cursor:"pointer", fontSize:12, fontWeight:700 }}>
                       {p.type==="event"?t.join:t.respond}<Icon n="chevronRight" size={13} color="#fff"/>
                     </button>}
