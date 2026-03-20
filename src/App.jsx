@@ -372,7 +372,7 @@ function VerifyModal({ t, dm, onClose, onVerified }) {
 }
 
 const Wrap = ({ children }) => (
-    <div style={{ minHeight:"100vh", background:"#F7F4EF", fontFamily:"DM Sans,sans-serif", maxWidth:480, margin:"0 auto", display:"flex", flexDirection:"column", position:"relative" }}>
+    <div style={{ minHeight:"100vh", background:"#F7F4EF", fontFamily:"DM Sans,sans-serif", width:"100%", maxWidth:480, margin:"0 auto", display:"flex", flexDirection:"column", position:"relative" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet"/>
       {children}
     </div>
@@ -863,7 +863,7 @@ const filtPosts = allPosts.filter(p=>{
   );
 
   return (
-    <div style={{ minHeight:"100vh", background:bg, fontFamily:"DM Sans,sans-serif", maxWidth:480, margin:"0 auto", display:"flex", flexDirection:"column" }}>
+    <div style={{ minHeight:"100vh", background:bg, fontFamily:"DM Sans,sans-serif", width:"100%", maxWidth:480, margin:"0 auto", display:"flex", flexDirection:"column" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet"/>
       <div style={{ background:dm?"#1A1510":"#fff", borderBottom:"1px solid "+bdr, padding:"13px 18px", display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:50 }}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
