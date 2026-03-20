@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from './supabase';
 import { saveComment, getComments } from './comments';
 import { createPost, getPosts } from './posts';
@@ -757,6 +757,7 @@ useEffect(()=>{
   const [realPosts, setRealPosts] = useState([]);
   const [realMessages, setRealMessages] = useState([]);
   const [convMessages, setConvMessages] = useState([]);
+  const convEndRef = useRef(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [profileLoading, setProfileLoading] = useState(true);
   const [showEditProfile, setShowEditProfile] = useState(false);
@@ -828,6 +829,9 @@ useEffect(()=>{
     supabase.from("messages").select("*").or("and(sender_id.eq."+user?.id+",receiver_id.eq."+otherId+"),and(sender_id.eq."+otherId+",receiver_id.eq."+user?.id+")").order("created_at").then(({data})=>{ if(data) setConvMessages(data); });
   }
 },[activeConv]);
+useEffect(()=>{
+  convEndRef.current?.scrollIntoView({behavior:"smooth"});
+},[convMessages]);
   const displayIni = displayName[0]?.toUpperCase()||"U";
 
   const requireVer = (fn) => { if(verified) fn(); else setShowVer(true); };
@@ -1110,7 +1114,7 @@ const filtPosts = allPosts.filter(p=>{
     <Av ini={(m.sender_id===user?.id?m.receiver_name||"?":m.sender_name||"?")[0]?.toUpperCase()||"?"} size={46} col={AVC[i%AVC.length]} ver={false}/>
     <div style={{ flex:1, minWidth:0 }}>
       <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-        <span style={{ fontSize:14, fontWeight:!m.read&&m.receiver_id===user?.id?700:600, color:ink }}>{m.sender_id===user?.id?"You":m.sender_name||"User"}</span>
+        <span style={{ fontSize:14, fontWeight:!m.read&&m.receiver_id===user?.id?700:600, color:ink }}>{m.sender_id===user?.id ? m.receiver_name||"User" : m.sender_name||"User"}</span>
         <span style={{ fontSize:11, color:mid }}>{new Date(m.created_at).toLocaleDateString()}</span>
       </div>
       <span style={{ fontSize:13, color:!m.read&&m.receiver_id===user?.id?ink:mid, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"block", maxWidth:210 }}>{m.content}</span>
@@ -1246,6 +1250,7 @@ const filtPosts = allPosts.filter(p=>{
                 </div>
               </div>
             ))}
+            <div ref={convEndRef}/>
           </div>
           <div style={{ background:dm?"#1A1510":"#fff", borderTop:"1px solid "+bdr, padding:"12px 16px", display:"flex", gap:10, alignItems:"center" }}>
             <div style={{ flex:1, background:warm, border:"1.5px solid "+bdr, borderRadius:24, padding:"10px 16px" }}>
