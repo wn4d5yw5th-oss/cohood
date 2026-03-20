@@ -845,7 +845,7 @@ const filtPosts = allPosts.filter(p=>{
 });
 
   const NavBtn = ({ k, icon, label, badge }) => (
-    <button onClick={()=>setTab(k)} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:3, padding:"7px 0 8px", border:"none", background:"transparent", cursor:"pointer", color:tab===k?G:mid, position:"relative" }}>
+    <button onClick={()=>{ setTab(k); if(k==="messages"){ supabase.from("messages").update({read:true}).eq("receiver_id",user?.id).eq("read",false).then(()=>setUnreadCount(0)); } }} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:3, padding:"7px 0 8px", border:"none", background:"transparent", cursor:"pointer", color:tab===k?G:mid, position:"relative" }}>
       <span style={{ position:"relative" }}>
         <Icon n={icon} size={20} color={tab===k?G:mid} sw={tab===k?2.2:1.6}/>
         {badge&&tab!=="messages"&&(
@@ -1106,7 +1106,7 @@ const filtPosts = allPosts.filter(p=>{
           <div style={{ padding:"18px 16px" }}>
             <h2 style={{ margin:"0 0 18px", fontSize:20, fontWeight:700, color:ink, fontFamily:"Playfair Display,serif" }}>{t.msgTitle}</h2>
             {realMessages.length>0?realMessages.map((m,i)=>(
-  <div key={m.id} onClick={()=>setActiveConv(m)} style={{ display:"flex", gap:12, alignItems:"center", padding:"13px 0", borderBottom:"1px solid "+bdr, cursor:"pointer" }}>
+  <div key={m.id} onClick={()=>{ setActiveConv(m); if(!m.read&&m.receiver_id===user?.id){ supabase.from("messages").update({read:true}).eq("id",m.id).then(()=>setUnreadCount(prev=>Math.max(0,prev-1))); } }} style={{ display:"flex", gap:12, alignItems:"center", padding:"13px 0", borderBottom:"1px solid "+bdr, cursor:"pointer" }}>
     <Av ini={(m.sender_id===user?.id?m.receiver_name||"?":m.sender_name||"?")[0]?.toUpperCase()||"?"} size={46} col={AVC[i%AVC.length]} ver={false}/>
     <div style={{ flex:1, minWidth:0 }}>
       <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
@@ -1232,7 +1232,7 @@ const filtPosts = allPosts.filter(p=>{
             <Av ini={activeConv.ini} size={36} col={activeConv.col} ver={activeConv.ver}/>
             <div>
               <div style={{ fontSize:14, fontWeight:700, color:ink }}>{activeConv.sender_id===user?.id ? activeConv.receiver_name||"User" : activeConv.sender_name||"User"}</div>
-              <div style={{ fontSize:11, color:G, fontWeight:600 }}>{t.online}</div>
+              <div style={{ fontSize:11, color:G, fontWeight:600 }}>{activeConv.last_seen ? (Date.now()-new Date(activeConv.last_seen).getTime()<300000?"Online":"Last seen "+Math.floor((Date.now()-new Date(activeConv.last_seen).getTime())/60000)+" min ago") : "Online"}</div>
             </div>
           </div>
           <div style={{ flex:1, overflowY:"auto", padding:16, display:"flex", flexDirection:"column", gap:10 }}>
@@ -1251,7 +1251,7 @@ const filtPosts = allPosts.filter(p=>{
             <div style={{ flex:1, background:warm, border:"1.5px solid "+bdr, borderRadius:24, padding:"10px 16px" }}>
               <input value={convMsg} onChange={e=>setConvMsg(e.target.value)} placeholder={t.msgPh} style={{ width:"100%", border:"none", outline:"none", background:"transparent", fontSize:14, color:ink, fontFamily:"DM Sans,sans-serif" }}/>
             </div>
-            <button onClick={async()=>{ if(convMsg.trim()){ await sendMessage(user?.id, activeConv.sender_id===user?.id?activeConv.receiver_id:activeConv.sender_id, displayName, activeConv.sender_id===user?.id?activeConv.receiver_name||"User":activeConv.sender_name||"User", null, convMsg); setConvMsg(""); } }} style={{ width:42, height:42, borderRadius:"50%", background:G, border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <button onClick={async()=>{ if(convMsg.trim()){ await sendMessage(user?.id, activeConv.sender_id===user?.id?activeConv.receiver_id:activeConv.sender_id, displayName, activeConv.sender_id===user?.id?activeConv.receiver_name||"User":activeConv.sender_name||"User", null, convMsg); setConvMessages(prev=>[...prev,{id:Date.now(),sender_id:user?.id,receiver_id:activeConv.sender_id===user?.id?activeConv.receiver_id:activeConv.sender_id,content:convMsg,created_at:new Date().toISOString()}]); setConvMsg(""); } }} style={{ width:42, height:42, borderRadius:"50%", background:G, border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
               <Icon n="send" size={16} color="#fff"/>
             </button>
           </div>
@@ -1341,7 +1341,7 @@ export default function Root() {
 
   useEffect(()=>{
     supabase.auth.getSession().then(({data:{session}})=>{
-      if(session){ setUser(session.user); setAuthed(true); }
+      if(session){ setUser(session.user); setAuthed(true); supabase.from("profiles").update({last_seen:new Date().toISOString()}).eq("id",session.user.id); }
     });
     const { data:{ subscription } } = supabase.auth.onAuthStateChange((_,session)=>{
       if(session){ setUser(session.user); setAuthed(true); }
