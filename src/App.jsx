@@ -1386,8 +1386,8 @@ function EditProfileModal({ user, profile, onClose, onSave, lang }) {
   const [hood, setHood] = useState(profile?.neighborhood || "");
   const [bio, setBio] = useState(profile?.bio || "");
   const save = async () => {
-    await supabase.from("profiles").upsert({ id:user.id, full_name:name, neighborhood:hood, bio:bio });
-    onSave({ full_name:name, neighborhood:hood, bio:bio });
+    await supabase.from("profiles").upsert({ id:user.id, full_name:name, neighborhood:hood, bio:bio, avatar_url:profile?.avatar_url });
+    onSave({ full_name:name, neighborhood:hood, bio:bio, avatar_url:profile?.avatar_url });
     onClose();
   };
   return (
