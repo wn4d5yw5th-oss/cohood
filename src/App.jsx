@@ -762,6 +762,7 @@ useEffect(()=>{
   const [langOpen, setLangOpen] = useState(false);
   const [profile, setProfile] = useState(null);
   const [realPosts, setRealPosts] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
   const [neighborCount, setNeighborCount] = useState(0);
   const [realMessages, setRealMessages] = useState([]);
   const [convMessages, setConvMessages] = useState([]);
@@ -805,6 +806,7 @@ useEffect(()=>{
   useEffect(()=>{
   if(displayHood){
     supabase.from('profiles').select('id', {count:'exact'}).eq('neighborhood', displayHood).then(({count})=>setNeighborCount(count||0));
+    supabase.from('announcements').select('*').eq('neighborhood', displayHood).order('created_at', {ascending:false}).then(({data})=>{ if(data) setAnnouncements(data); });
     getPosts(displayHood).then(({data})=>{
       if(data) setRealPosts(data.map(p=>({
         id:p.id, user_id:p.user_id, type:p.type||"help", user:p.full_name||"User",
@@ -934,6 +936,34 @@ const filtPosts = allPosts.filter(p=>{
                 <button key={k} onClick={()=>setFilter(k)} style={{ padding:"6px 14px", borderRadius:20, border:"1.5px solid "+(filter===k?G:bdr), background:filter===k?G:"transparent", color:filter===k?"#fff":mid, fontSize:13, fontWeight:600, cursor:"pointer", transition:"all .2s" }}>{lbl}</button>
               ))}
             </div>
+
+            {announcements.map((a)=>(
+  <div key={a.id} style={{ position:"relative", marginBottom:12 }}>
+  <div ref={el=>{
+    if(el){
+      const w=el.offsetWidth, h=el.offsetHeight;
+      const svg=el.querySelector('.ann-svg');
+      if(svg){
+        svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
+        svg.querySelectorAll('animateMotion').forEach(am=>{
+          am.setAttribute('path',`M 0 0 L ${w} 0 L ${w} ${h} L 0 ${h} Z`);
+        });
+      }
+    }
+  }} className="breaking-card" style={{ border:"2.5px solid #E05A1A", borderRadius:16, padding:16, background:card, animation:"borderGlow 1.5s infinite" }}>
+    <svg className="ann-svg" style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%", pointerEvents:"none", overflow:"visible", zIndex:5 }} viewBox="0 0 300 100">
+      <text fontSize="18" textAnchor="middle" dominantBaseline="middle">🔥<animateMotion dur="8s" repeatCount="indefinite" path="M 0 0 L 300 0 L 300 100 L 0 100 Z"/></text>
+      <text fontSize="18" textAnchor="middle" dominantBaseline="middle">🔥<animateMotion dur="8s" begin="-4s" repeatCount="indefinite" path="M 0 0 L 300 0 L 300 100 L 0 100 Z"/></text>
+    </svg>
+    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
+      <div style={{ background:"#E05A1A", borderRadius:6, padding:"3px 10px", fontSize:10, fontWeight:700, color:"#fff", animation:"breakingPulse 1.2s infinite" }}>{lang==="NL"?"🔴 NIEUWS":"🔴 BREAKING"}</div>
+      <span style={{ fontSize:11, color:mid, marginLeft:"auto" }}>{(()=>{ const diff=Math.floor((Date.now()-new Date(a.created_at).getTime())/60000); if(diff<1) return "just now"; if(diff<60) return diff+" min"; if(diff<1440) return Math.floor(diff/60)+" hr"; return Math.floor(diff/1440)+" days"; })()}</span>
+    </div>
+    <p style={{ margin:0, fontSize:14, color:ink, lineHeight:1.6 }}>{a.body}</p>
+  </div>
+</div>
+))}
+
             {filtPosts.map((p,i)=>{
               const tc=TCAT[p.type]||TCAT.announce;
               const ac = AVC[p.user?.charCodeAt(0)%AVC.length||0];
