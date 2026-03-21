@@ -762,6 +762,7 @@ useEffect(()=>{
   const [langOpen, setLangOpen] = useState(false);
   const [profile, setProfile] = useState(null);
   const [realPosts, setRealPosts] = useState([]);
+  const [neighborCount, setNeighborCount] = useState(0);
   const [realMessages, setRealMessages] = useState([]);
   const [convMessages, setConvMessages] = useState([]);
   const convEndRef = useRef(null);
@@ -803,6 +804,7 @@ useEffect(()=>{
   const displayHood = profile?.neighborhood||user?.user_metadata?.neighborhood||"Amsterdam";
   useEffect(()=>{
   if(displayHood){
+    supabase.from('profiles').select('id', {count:'exact'}).eq('neighborhood', displayHood).then(({count})=>setNeighborCount(count||0));
     getPosts(displayHood).then(({data})=>{
       if(data) setRealPosts(data.map(p=>({
         id:p.id, user_id:p.user_id, type:p.type||"help", user:p.full_name||"User",
@@ -924,7 +926,7 @@ const filtPosts = allPosts.filter(p=>{
               </div>
               <div style={{ background:GL, borderRadius:20, padding:"4px 12px", display:"flex", alignItems:"center", gap:6 }}>
                 <div style={{ width:6, height:6, borderRadius:"50%", background:G }}/>
-                <span style={{ fontSize:12, color:G, fontWeight:600 }}>89 {t.neighbors}</span>
+                <span style={{ fontSize:12, color:G, fontWeight:600 }}>{neighborCount} {t.neighbors}</span>
               </div>
             </div>
             <div style={{ display:"flex", gap:8, marginBottom:16 }}>
