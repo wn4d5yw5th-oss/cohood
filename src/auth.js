@@ -11,16 +11,16 @@ export async function signUp(email, password, fullName, neighborhood) {
       }
     }
   });
-
-  if (data?.user && !error) {
-    await supabase.from('profiles').insert({
+  
+  if (!error && data?.user) {
+    await supabase.from('profiles').upsert({
       id: data.user.id,
       full_name: fullName,
       neighborhood: neighborhood,
       verified: false
     });
   }
-
+  
   return { data, error };
 }
 

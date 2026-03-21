@@ -602,7 +602,7 @@ function Auth({ onLogin, lang, setLang }) {
             />
           ))}
         </div>
-        <button onClick={()=>setScreen("profile")} style={{ width:"100%", padding:"14px 0", background:G, color:"#fff", border:"none", borderRadius:14, fontSize:15, fontWeight:700, cursor:"pointer", marginBottom:16 }}>{t.verifyBtn}</button>
+        <button onClick={async()=>{ const {error}=await supabase.auth.verifyOtp({email,token:code.join(""),type:"signup"}); if(error) alert(error.message); else setScreen("profile"); }} style={{ width:"100%", padding:"14px 0", background:G, color:"#fff", border:"none", borderRadius:14, fontSize:15, fontWeight:700, cursor:"pointer", marginBottom:16 }}>{t.verifyBtn}</button>
         <div style={{ background:"#fff", border:"1px solid #E2D9CC", borderRadius:14, padding:"14px 16px" }}>
           <div style={{ fontSize:13, color:"#6B5E4E", lineHeight:1.7 }}>
             {t.noEmail}{" "}
@@ -786,10 +786,10 @@ useEffect(()=>{
         supabase.from("profiles").insert({
           id: user.id,
           full_name: user.user_metadata?.full_name || user.user_metadata?.name || "",
-          neighborhood: "",
+          neighborhood: user.user_metadata?.neighborhood || "",
           verified: false
         }).then(()=>{
-          setProfile({ full_name: user.user_metadata?.full_name || "", neighborhood: "" });
+          setProfile({ full_name: user.user_metadata?.full_name || "", neighborhood: user.user_metadata?.neighborhood || "" });
         });
       }
       setProfileLoading(false);
@@ -820,7 +820,7 @@ useEffect(()=>{
 });
     });
   }
-},[displayHood]);
+},[profile?.neighborhood]);
 useEffect(()=>{
   if(user?.id){
     getMessages(user.id).then(({data})=>{
