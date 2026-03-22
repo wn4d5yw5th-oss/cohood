@@ -773,6 +773,8 @@ useEffect(()=>{
   const [notifCount, setNotifCount] = useState(0);
   const [profileLoading, setProfileLoading] = useState(true);
   const [showEditProfile, setShowEditProfile] = useState(false);
+  const [helpTab, setHelpTab] = useState("given");
+  const [helpRequests, setHelpRequests] = useState([]);
 
   const bg = dm?"#181510":"#F7F4EF";
   const card = dm?"#232018":"#FFFFFF";
@@ -846,6 +848,14 @@ useEffect(()=>{
   }
 },[user]);
 useEffect(()=>{
+  if(user?.id){
+    supabase.from('help_requests').select('*')
+      .or('requester_id.eq.'+user.id+',helper_id.eq.'+user.id)
+      .order('created_at',{ascending:false})
+      .then(({data})=>{ if(data) setHelpRequests(data); });
+  }
+},[user]);
+useEffect(()=>{
   if(activeConv?.id){
     const otherId=activeConv.sender_id===user?.id?activeConv.receiver_id:activeConv.sender_id;
     supabase.from("messages").select("*").or("and(sender_id.eq."+user?.id+",receiver_id.eq."+otherId+"),and(sender_id.eq."+otherId+",receiver_id.eq."+user?.id+")").order("created_at").then(({data})=>{ if(data) setConvMessages(data); });
@@ -883,9 +893,9 @@ setTranslated(p=>({...p,[id]:{body:translatedBody, offer:translatedOffer}}));
   setTranslating(p=>({...p,[id]:false}));
 };
   const submitHelp = () => requireVer(async()=>{ await createPost(user?.id, displayName, displayHood, "help", t.helpCats[needCat]||"", needTxt, offerTxt, isUrgent); setSuccess("help"); setTimeout(()=>{ setSuccess(null); setTab("feed"); setNeedCat(null); setNeedTxt(""); setOfferCat(null); setOfferTxt(""); setIsUrgent(false); },2000); });  const submitEv = () => requireVer(()=>{ setSuccess("ev"); setTimeout(()=>{ setSuccess(null); setTab("feed"); setEvType(null); setEvName(""); setEvDate(""); setEvLoc(""); },2000); });
-  const sendDm = async() => { if(dmText.trim()){ await sendMessage(user?.id, dmPost?.user_id||dmPost?.id, displayName, dmPost?.user||"User", dmPost?.id, dmText, profile?.avatar_url); setDmSent(true); setTimeout(()=>{ setDmSent(false); setDmPost(null); setDmText(""); },1800); } };
+  const sendDm = async() => { if(dmText.trim()){ await sendMessage(user?.id, dmPost?.user_id||dmPost?.id, displayName, dmPost?.user||"User", dmPost?.id, dmText, profile?.avatar_url); if(dmPost?.user_id && dmPost?.user_id !== user?.id){const {data:hd, error:he} = await supabase.from('help_requests').insert({ post_id:String(dmPost?.id), post_body:dmPost?.body, requester_id:dmPost?.user_id, requester_name:dmPost?.user, helper_id:user?.id, helper_name:displayName, status:'pending', offer_body:dmPost?.offer }); } setDmSent(true); setTimeout(()=>{ setDmSent(false); setDmPost(null); setDmText(""); },1800); } };
 const userHood = profile?.neighborhood || user?.user_metadata?.neighborhood;
-const allPosts = [...realPosts, ...posts.filter(p=>p.hood===displayHood||p.hood==="All Neighborhood"||p.hood==="Hele Buurt")];  
+const allPosts = [...realPosts, ...posts.filter(p=>p.hood===displayHood||p.hood==="All Neighborhood"||p.hood==="Hele Buurt")];   
 const filtPosts = allPosts.filter(p=>{
   const typeMatch = filter==="all"||(filter==="help"&&p.type==="help")||(filter==="event"&&p.type==="event");
   return typeMatch;
@@ -1061,7 +1071,7 @@ const filtPosts = allPosts.filter(p=>{
                     </button>
                   
                   
-                    {p.user_id !== user?.id && <button onClick={()=>setDmPost(p)} style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:5, padding:"6px 14px", borderRadius:20, border:"none", background:G, color:"#fff", cursor:"pointer", fontSize:12, fontWeight:700 }}>
+                    {p.user_id !== user?.id && !helpRequests.some(h=>h.post_id===String(p.id)&&h.helper_id===user?.id) && <button onClick={()=>{ setDmPost(p); supabase.from('help_requests').insert({ post_id:String(p.id), post_body:p.body, requester_id:p.user_id, requester_name:p.user, helper_id:user?.id, helper_name:displayName, status:'pending' }); }} style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:5, padding:"6px 14px", borderRadius:20, border:"none", background:G, color:"#fff", cursor:"pointer", fontSize:12, fontWeight:700 }}>
                       {p.type==="event"?t.join:t.respond}<Icon n="chevronRight" size={13} color="#fff"/>
                     </button>}
                   </div>
@@ -1238,7 +1248,7 @@ const filtPosts = allPosts.filter(p=>{
     const ext=file.name.split('.').pop();
     const fileName=user?.id+'/'+Date.now()+'.'+ext;
     const {error}=await supabase.storage.from('avatars').upload(fileName,file,{upsert:true});
-    console.log("upload result:", error);
+    
     if(!error){ const {data}=supabase.storage.from('avatars').getPublicUrl(fileName); setProfile(prev=>({...prev,avatar_url:data.publicUrl})); await supabase.from('profiles').update({avatar_url:data.publicUrl}).eq('id',user?.id); }
     else alert(error.message);
   }}/>
@@ -1260,31 +1270,61 @@ const filtPosts = allPosts.filter(p=>{
               </div>
             </div>
             <button onClick={()=>setShowEditProfile(true)} style={{ marginBottom:12, width:"100%", padding:"11px 0", background:"transparent", border:"1.5px solid #E2D9CC", borderRadius:12, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6, color:ink }}><Icon n="user" size={15} color={ink}/><span style={{ fontSize:13, fontWeight:600 }}>Edit Profile</span></button>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:12 }}>
-              {[[12,t.helped,"heart"],[5,t.evLabel,"calendar"],[89,t.conns,"users"]].map(([n,lbl,icon])=>(
-                <div key={lbl} style={{ background:card, border:"1px solid "+bdr, borderRadius:14, padding:"13px 8px", textAlign:"center" }}>
-                  <div style={{ display:"flex", justifyContent:"center", marginBottom:5, color:G }}><Icon n={icon} size={18}/></div>
-                  <div style={{ fontSize:22, fontWeight:800, color:ink }}>{n}</div>
-                  <div style={{ fontSize:11, color:mid, marginTop:1 }}>{lbl}</div>
-                </div>
-              ))}
-            </div>
+            {(()=>{
+  const pts = profile?.points||0;
+  const levels = [
+    {min:0, max:500, level:1, name:"Newcomer", desc:"Verified entry. Exploring the neighborhood ecosystem.", icon:"🌱"},
+    {min:501, max:2500, level:2, name:"Observer", desc:"Initial social contributions. Gaining community recognition.", icon:"👀"},
+    {min:2501, max:7500, level:3, name:"Neighbor", desc:"Reliable community member. Authorized for micro-resource sharing.", icon:"🤝"},
+    {min:7501, max:20000, level:4, name:"Contributor", desc:"CORE MEMBER. Active problem solver and verified volunteer.", icon:"⭐"},
+    {min:20001, max:50000, level:5, name:"Connector", desc:"Integration bridge. Expert in fostering diverse social bonds.", icon:"🔗"},
+    {min:50001, max:150000, level:6, name:"Steward", desc:"Neighborhood Guardian. High-trust arbiter for local disputes.", icon:"🛡️"},
+    {min:150000, max:Infinity, level:7, name:"Urban Visionary", desc:"ZIRVE. Digital architect of urban resilience and policy advisor.", icon:"👑"},
+  ];
+  const cur = levels.find(l=>pts>=l.min&&pts<=l.max)||levels[0];
+  const next = levels[cur.level]||null;
+  const progress = next ? Math.min(100, Math.round((pts-cur.min)/(next.min-cur.min)*100)) : 100;
+  return (
+    <div style={{ background:card, border:"1px solid "+bdr, borderRadius:16, padding:16, marginBottom:12 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+        <span style={{ fontSize:28 }}>{cur.icon}</span>
+        <div style={{ flex:1 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <span style={{ fontSize:15, fontWeight:700, color:ink }}>Level {cur.level} — {cur.name}</span>
+            <span style={{ fontSize:12, fontWeight:700, color:G }}>{pts} Co-Points</span>
+          </div>
+          <div style={{ fontSize:11, color:mid, marginTop:2 }}>{cur.desc}</div>
+        </div>
+      </div>
+      <div style={{ background:warm, borderRadius:20, height:6, overflow:"hidden" }}>
+        <div style={{ width:progress+"%", height:"100%", background:G, borderRadius:20, transition:"width .5s" }}/>
+      </div>
+      {next&&<div style={{ fontSize:10, color:mid, marginTop:4, textAlign:"right" }}>{next.min-pts} pts to {next.name}</div>}
+    </div>
+  );
+})()}
             <div style={{ background:card, border:"1px solid "+bdr, borderRadius:16, padding:14, marginBottom:12 }}>
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:7 }}>
-                  <Icon n="hands" size={16} color={PU}/>
-                  <span style={{ fontSize:14, fontWeight:700, color:ink }}>{t.myOffers}</span>
-                </div>
-                <button style={{ display:"flex", alignItems:"center", gap:4, padding:"4px 10px", background:PUL, border:"1px solid "+PU+"20", borderRadius:8, cursor:"pointer" }}>
-                  <Icon n="plus" size={13} color={PU}/><span style={{ fontSize:12, fontWeight:700, color:PU }}>{t.addOffer}</span>
-                </button>
-              </div>
-              <div style={{ background:PUL, borderRadius:10, padding:"10px 12px" }}>
-                <p style={{ margin:0, fontSize:13, color:PU, lineHeight:1.5 }}>
-                  {lang==="NL"?"Ik kan helpen met vertaalwerk.":"I can help with translation."}
-                </p>
-              </div>
-            </div>
+  <div style={{ display:"flex", gap:8, marginBottom:14 }}>
+    <button onClick={()=>setHelpTab("given")} style={{ flex:1, padding:"8px 0", borderRadius:10, border:"none", background:helpTab==="given"?G:"transparent", color:helpTab==="given"?"#fff":mid, fontWeight:700, fontSize:12, cursor:"pointer" }}>{lang==="NL"?"Verleend":"Given"}</button>
+    <button onClick={()=>setHelpTab("received")} style={{ flex:1, padding:"8px 0", borderRadius:10, border:"none", background:helpTab==="received"?G:"transparent", color:helpTab==="received"?"#fff":mid, fontWeight:700, fontSize:12, cursor:"pointer" }}>{lang==="NL"?"Ontvangen":"Received"}</button>
+  </div>
+  {helpRequests.filter(h=>helpTab==="given"?h.helper_id===user?.id&&h.helper_confirmed===null:h.requester_id===user?.id&&h.requester_confirmed===null).length===0?(
+    <div style={{ textAlign:"center", padding:"20px 0", color:mid, fontSize:13 }}>{lang==="NL"?"Nog geen yardımlar":"No help yet"}</div>
+  ):helpRequests.filter(h=>helpTab==="given"?h.helper_id===user?.id&&h.helper_confirmed===null:h.requester_id===user?.id&&h.requester_confirmed===null).map(h=>(
+    <div key={h.id} style={{ background:warm, borderRadius:12, padding:"12px 14px", marginBottom:8 }}>
+      <div style={{ fontSize:13, color:ink, marginBottom:8 }}>{helpTab==="given"?(h.offer_body||h.post_body)?.substring(0,60):h.post_body?.substring(0,60)}...</div>
+      <div style={{ fontSize:11, color:mid, marginBottom:8 }}>{helpTab==="given"?h.requester_name:h.helper_name}</div>
+      {h.status==="pending" && (
+        <div style={{ display:"flex", gap:6 }}>
+          <button onClick={async()=>{ supabase.from('help_requests').update({[helpTab==="given"?"helper_confirmed":"requester_confirmed"]:true}).eq('id',h.id) .then(()=>{}) ; await supabase.rpc('increment_points', {user_id: helpTab==="given"?h.requester_id:h.helper_id}); setHelpRequests(prev=>prev.filter(x=>x.id!==h.id)); }} style={{ flex:1, padding:"7px 0", borderRadius:10, border:"none", background:G, color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer" }}>{lang==="NL"?"✓ Geholpen":"✓ Helped"}</button>
+          <button onClick={()=>{ supabase.from('help_requests').update({[helpTab==="given"?"helper_confirmed":"requester_confirmed"]:false}).eq('id',h.id) .then(()=>{}) ; setHelpRequests(prev=>prev.filter(x=>x.id!==h.id)); }} style={{ flex:1, padding:"7px 0", borderRadius:10, border:"none", background:"#FFF0F0", color:"#E53935", fontSize:12, fontWeight:700, cursor:"pointer" }}>{lang==="NL"?"✗ Niet":"✗ Not helped"}</button>
+        </div>
+      )}
+      {h.status==="completed"&&<div style={{ fontSize:12, color:G, fontWeight:600 }}>✓ {lang==="NL"?"Voltooid":"Completed"}</div>}
+      {h.status==="cancelled"&&<div style={{ fontSize:12, color:"#E53935", fontWeight:600 }}>✗ {lang==="NL"?"Geannuleerd":"Cancelled"}</div>}
+    </div>
+  ))}
+</div>
             <div style={{ background:card, border:"1px solid "+bdr, borderRadius:16, overflow:"hidden", marginBottom:12 }}>
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 16px", borderBottom:"1px solid "+bdr }}>
                 <div style={{ display:"flex", alignItems:"center", gap:10 }}><Icon n="globe" size={17} color={G}/><span style={{ fontSize:14, fontWeight:500, color:ink }}>{t.langPref}</span></div>
