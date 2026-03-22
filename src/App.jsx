@@ -764,6 +764,7 @@ useEffect(()=>{
   const [realPosts, setRealPosts] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [neighborCount, setNeighborCount] = useState(0);
+  const [neighborhoodPop, setNeighborhoodPop] = useState(0);
   const [realMessages, setRealMessages] = useState([]);
   const [convMessages, setConvMessages] = useState([]);
   const convEndRef = useRef(null);
@@ -811,6 +812,7 @@ useEffect(()=>{
   useEffect(()=>{
   if(displayHood){
     supabase.from('profiles').select('id', {count:'exact'}).eq('neighborhood', displayHood).then(({count})=>setNeighborCount(count||0));
+    supabase.from('neighborhood_populations').select('population').eq('neighborhood', displayHood).single().then(({data})=>{ if(data) setNeighborhoodPop(data.population); });
     supabase.from('announcements').select('*').eq('neighborhood', displayHood).order('created_at', {ascending:false}).then(({data})=>{ if(data) setAnnouncements(data); });
     getPosts(displayHood).then(({data})=>{
       if(data) setRealPosts(data.map(p=>({
@@ -819,7 +821,7 @@ useEffect(()=>{
         time: (() => { const diff = Math.floor((Date.now() - new Date(p.created_at).getTime()) / 60000); if(diff < 1) return "just now"; if(diff < 60) return diff + " min"; if(diff < 1440) return Math.floor(diff/60) + " hr"; return Math.floor(diff/1440) + " days"; })(), cat:p.category||"", icon:"tool",
         body:p.body, offer:p.offer, likes:0, replies:0,
         urgent:p.urgent, hood:p.neighborhood,
-        avatar_url:p.avatar_url
+        avatar_url:p.avatar_url, user_points:p.user_points||0
       })));
       if(data) data.forEach(p=>{
   getLikes(p.id).then(count=>{ setLikeCounts(prev=>({...prev,[p.id]:count})); });
@@ -974,11 +976,24 @@ const filtPosts = allPosts.filter(p=>{
                 <span style={{ fontSize:12, color:G, fontWeight:600 }}>{neighborCount} {t.neighbors}</span>
               </div>
             </div>
-            <div style={{ display:"flex", gap:8, marginBottom:16 }}>
-              {[["all",t.all],["help",t.helpF],["event",t.eventF]].map(([k,lbl])=>(
-                <button key={k} onClick={()=>setFilter(k)} style={{ padding:"6px 14px", borderRadius:20, border:"1.5px solid "+(filter===k?G:bdr), background:filter===k?G:"transparent", color:filter===k?"#fff":mid, fontSize:13, fontWeight:600, cursor:"pointer", transition:"all .2s" }}>{lbl}</button>
-              ))}
-            </div>
+            <div style={{ display:"flex", gap:8, marginBottom:16, alignItems:"center", flexWrap:"wrap" }}>
+  {[["all",t.all],["help",t.helpF],["event",t.eventF]].map(([k,lbl])=>(
+    <button key={k} onClick={()=>setFilter(k)} style={{ padding:"6px 14px", borderRadius:20, border:"1.5px solid "+(filter===k?G:bdr), background:filter===k?G:"transparent", color:filter===k?"#fff":mid, fontSize:13, fontWeight:600, cursor:"pointer", transition:"all .2s" }}>{lbl}</button>
+  ))}
+  {(()=>{
+    const pct = neighborhoodPop>0 ? Math.max(1, Math.round((neighborCount/neighborhoodPop)*100)) : 1;
+    const stages=[{pct:10,icon:"🌱",name:"Seedling"},{pct:25,icon:"🌿",name:"Sprout"},{pct:50,icon:"🌸",name:"Bloom"},{pct:75,icon:"🌾",name:"Harvest"},{pct:100,icon:"🏆",name:"Resilience Hub"}];
+    const stage=stages.slice().reverse().find(s=>pct>=s.pct)||stages[0];
+    return (
+      <div style={{ marginLeft:"auto", display:"flex", flexDirection:"column", alignItems:"flex-start", gap:3, minWidth:120 }}>
+  <span style={{ fontSize:10, color:mid, fontWeight:600, whiteSpace:"nowrap" }}>{stage.icon} {displayHood} · {stage.name} · {pct}%</span>
+  <div style={{ width:"100%", height:5, background:"#D0CCC4", borderRadius:20, overflow:"hidden" }}>
+    <div style={{ width:pct+"%", height:"100%", background:G, borderRadius:20 }}/>
+  </div>
+</div>
+    );
+  })()}
+</div>
 
             {announcements.map((a)=>(
   <div key={a.id} style={{ position:"relative", marginBottom:12 }}>
@@ -1017,7 +1032,7 @@ const filtPosts = allPosts.filter(p=>{
                     <div style={{ flex:1 }}>
                       <div style={{ display:"flex", justifyContent:"space-between" }}>
                         <div>
-                          <div style={{ fontSize:14, fontWeight:700, color:ink }}>{p.user}</div>
+                          <div style={{ fontSize:14, fontWeight:700, color:ink }}>{p.user} <span style={{ fontSize:11, fontWeight:400, color:mid }}>{(()=>{ const pts=p.user_points||0; const levels=[{max:500,icon:"🌱",name:"Newcomer"},{max:2500,icon:"👁️",name:"Observer"},{max:7500,icon:"🤝",name:"Neighbor"},{max:20000,icon:"⭐",name:"Contributor"},{max:50000,icon:"🔗",name:"Connector"},{max:150000,icon:"🛡️",name:"Steward"},{max:Infinity,icon:"👑",name:"Urban Visionary"}]; const idx=levels.findIndex(x=>pts<=x.max); const lvl=idx===-1?7:idx+1; const l=levels[idx]||levels[0]; return "("+l.icon+" "+l.name+" · Lv."+lvl+")"; })()}</span></div>
                           <div style={{ display:"flex", alignItems:"center", gap:4, marginTop:2 }}>
                             <Icon n="mapPin" size={11} color={mid}/><span style={{ fontSize:12, color:mid }}>{p.hood}</span>
                             <span style={{ color:bdr }}>·</span>
