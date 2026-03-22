@@ -704,6 +704,84 @@ function Auth({ onLogin, lang, setLang }) {
     </Wrap>
   );
 }
+function CoSpotsCanvas(){
+  const ref = useRef(null);
+  useEffect(()=>{
+    const canvas = ref.current;
+    if(!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const NODES = [
+      {x:.50,y:.45},{x:.50,y:.28},{x:.65,y:.32},{x:.70,y:.45},{x:.65,y:.58},{x:.50,y:.63},{x:.35,y:.58},{x:.30,y:.45},{x:.35,y:.32},
+      {x:.50,y:.14},{x:.68,y:.18},{x:.78,y:.32},{x:.82,y:.48},{x:.75,y:.63},{x:.60,y:.74},{x:.50,y:.77},{x:.40,y:.74},{x:.25,y:.63},{x:.18,y:.48},{x:.22,y:.32},{x:.32,y:.18},
+      {x:.50,y:.04},{x:.72,y:.08},{x:.88,y:.20},{x:.94,y:.42},{x:.86,y:.68},{x:.65,y:.84},{x:.50,y:.88},{x:.35,y:.84},{x:.14,y:.68},{x:.06,y:.42},{x:.12,y:.20},{x:.28,y:.08},
+      {x:.58,y:.22},{x:.74,y:.38},{x:.72,y:.56},{x:.56,y:.70},{x:.42,y:.70},{x:.28,y:.56},{x:.26,y:.38},{x:.42,y:.22},
+    ];
+    const EDGES = [
+      [0,1],[0,2],[0,3],[0,4],[0,5],[0,6],[0,7],[0,8],
+      [1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[8,1],
+      [1,9],[2,33],[2,10],[3,11],[3,34],[4,12],[4,35],[5,13],[5,36],[6,14],[6,37],[7,15],[7,38],[7,16],[8,39],[8,17],[1,40],[8,41],
+      [9,10],[10,11],[11,12],[12,13],[13,14],[14,15],[15,16],[16,17],[17,18],[18,19],[19,20],[20,9],
+      [9,21],[10,22],[11,23],[12,24],[13,25],[14,26],[15,27],[16,28],[17,29],[18,30],[19,31],[20,32],
+      [21,22],[22,23],[23,24],[25,26],[26,27],[27,28],[29,30],[30,31],[31,32],[32,21],
+      [33,34],[34,35],[35,36],[36,37],[37,38],[38,39],[39,40],[40,41],[41,33],
+    ];
+    const state = NODES.map(()=>({ green:0, timer:Math.random()*600, speed:0.004+Math.random()*0.003 }));
+    let raf;
+    const draw = ()=>{
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+      const W=canvas.width, H=canvas.height, oy=-H*0.04;
+      ctx.clearRect(0,0,W,H);
+      state.forEach((s)=>{ s.timer--; if(s.timer<=0){s.green=1;s.timer=500+Math.random()*800;} if(s.green>0)s.green-=s.speed; if(s.green<0)s.green=0; });
+      EDGES.forEach(([ai,bi])=>{ if(ai>=NODES.length||bi>=NODES.length)return; const a=NODES[ai],b=NODES[bi]; const ax=a.x*W,ay=oy+a.y*H,bx=b.x*W,by=oy+b.y*H; const g=Math.max(state[ai].green,state[bi].green); ctx.beginPath(); ctx.moveTo(ax,ay); ctx.quadraticCurveTo((ax+bx)/2,(ay+by)/2,bx,by); ctx.strokeStyle=g>0.05?`rgba(61,107,53,${0.04+g*0.10})`:'rgba(44,36,22,0.055)'; ctx.lineWidth=g>0.05?1:0.7; ctx.stroke(); });
+      NODES.forEach((n,i)=>{ const x=n.x*W,y=oy+n.y*H,g=state[i].green; if(g>0.05){ctx.beginPath();ctx.arc(x,y,2+g*6,0,Math.PI*2);ctx.fillStyle=`rgba(61,107,53,${g*0.08})`;ctx.fill();} ctx.beginPath();ctx.arc(x,y,g>0.05?2.2:1.4,0,Math.PI*2);ctx.fillStyle=g>0.05?`rgba(61,107,53,${0.18+g*0.28})`:'rgba(44,36,22,0.1)';ctx.fill(); });
+      raf = requestAnimationFrame(draw);
+    };
+    draw();
+    return ()=>cancelAnimationFrame(raf);
+  },[]);
+  return <canvas ref={ref} style={{ position:"absolute", inset:0, width:"100%", height:"100%", opacity:.5 }}/>;
+}
+
+function CoCommonsCanvas(){
+  const ref = useRef(null);
+  useEffect(()=>{
+    const canvas = ref.current;
+    if(!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const PARTICLE_COUNT=28;
+    const particles=[];
+    function mkParticle(){ const angle=Math.random()*Math.PI*2; const dist=0.3+Math.random()*0.45; return {angle,dist,speed:0.0003+Math.random()*0.0004,shrink:0.0008+Math.random()*0.0006,size:1+Math.random()*1.5,alpha:0.05+Math.random()*0.1,amber:Math.random()>0.6}; }
+    for(let i=0;i<PARTICLE_COUNT;i++) particles.push(mkParticle());
+    const RINGS=[0.12,0.22,0.34];
+    let raf;
+    const draw=()=>{
+      canvas.width=canvas.offsetWidth||window.innerWidth;
+      canvas.height=canvas.offsetHeight||window.innerHeight;
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      const W=canvas.width,H=canvas.height,cx=W*0.5,cy=H*0.46,base=Math.min(W,H);
+      RINGS.forEach((r,i)=>{ ctx.beginPath(); ctx.arc(cx,cy,base*r,0,Math.PI*2); ctx.strokeStyle=`rgba(186,117,23,${0.04+i*0.015})`; ctx.lineWidth=0.6; ctx.stroke(); });
+      particles.forEach((p,i)=>{
+        p.angle+=p.speed; p.dist-=p.shrink*0.015;
+        if(p.dist<0.02){ particles[i]=mkParticle(); return; }
+        const x=cx+Math.cos(p.angle)*base*p.dist;
+        const y=cy+Math.sin(p.angle)*base*p.dist*0.55;
+        const tx=cx+Math.cos(p.angle-0.08)*base*(p.dist+0.015);
+        const ty=cy+Math.sin(p.angle-0.08)*base*(p.dist+0.015)*0.55;
+        ctx.beginPath(); ctx.moveTo(tx,ty); ctx.lineTo(x,y);
+        ctx.strokeStyle=p.amber?`rgba(186,117,23,${p.alpha*0.9})`:`rgba(44,36,22,${p.alpha*0.5})`;
+        ctx.lineWidth=p.size*0.6; ctx.stroke();
+        ctx.beginPath(); ctx.arc(x,y,p.size,0,Math.PI*2);
+        ctx.fillStyle=p.amber?`rgba(186,117,23,${p.alpha*1.4})`:`rgba(44,36,22,${p.alpha})`;
+        ctx.fill();
+      });
+      raf=requestAnimationFrame(draw);
+    };
+    draw();
+    return ()=>cancelAnimationFrame(raf);
+  },[]);
+  return <canvas ref={ref} style={{ position:"absolute", inset:0, width:"100%", height:"100%", opacity:.5 }}/>;
+}
 
 function App2({ lang, setLang, onLogout, dm, setDm, verified, setVerified, user }) {
   const t = TXT[lang];
@@ -779,6 +857,7 @@ useEffect(()=>{
   const [profileLoading, setProfileLoading] = useState(true);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [helpTab, setHelpTab] = useState("given");
+  const [postMenu, setPostMenu] = useState(null);
   const [helpRequests, setHelpRequests] = useState([]);
 
   const bg = dm?"#181510":"#F7F4EF";
@@ -819,20 +898,29 @@ useEffect(()=>{
     supabase.from('neighborhood_populations').select('population').eq('neighborhood', displayHood).single().then(({data})=>{ if(data) setNeighborhoodPop(data.population); });
     supabase.from('announcements').select('*').eq('neighborhood', displayHood).order('created_at', {ascending:false}).then(({data})=>{ if(data) setAnnouncements(data); });
     getPosts(displayHood).then(({data})=>{
-      if(data) setRealPosts(data.map(p=>({
-        id:p.id, user_id:p.user_id, type:p.type||"help", user:p.full_name||"User",
-        ini:(p.full_name||"U")[0].toUpperCase(), ver:false,
-        time: (() => { const diff = Math.floor((Date.now() - new Date(p.created_at).getTime()) / 60000); if(diff < 1) return "just now"; if(diff < 60) return diff + " min"; if(diff < 1440) return Math.floor(diff/60) + " hr"; return Math.floor(diff/1440) + " days"; })(), cat:p.category||"", icon:CAT_ICONS[p.category]||"tool",
-        body:p.body, offer:p.offer, likes:0, replies:0,
-        urgent:p.urgent, hood:p.neighborhood,
-        avatar_url:p.avatar_url, user_points:p.user_points||0
-      })));
-      if(data) data.forEach(p=>{
-  getLikes(p.id).then(count=>{ setLikeCounts(prev=>({...prev,[p.id]:count})); });
-  supabase.from("comments").select("*").eq("post_id",String(p.id)).order("created_at").then(({data:c})=>{
-    if(c&&c.length) setCmtList(prev=>({...prev,[p.id]:c.map(x=>({txt:x.content,name:x.full_name,ini:x.full_name?x.full_name[0]:"?",col:G,imgUrl:x.avatar_url}))}));
-  });
-});
+      if(data){
+        const userIds = [...new Set(data.map(p=>p.user_id).filter(Boolean))];
+        supabase.from("profiles").select("id,points").in("id",userIds).then(({data:profiles})=>{
+          const ptsMap = {};
+          if(profiles) profiles.forEach(pr=>ptsMap[pr.id]=pr.points||0);
+          setRealPosts(data.map(p=>({
+            id:p.id, user_id:p.user_id, type:p.type||"help", user:p.full_name||"User",
+            ini:(p.full_name||"U")[0].toUpperCase(), ver:false,
+            time: (() => { const diff = Math.floor((Date.now() - new Date(p.created_at).getTime()) / 60000); if(diff < 1) return "just now"; if(diff < 60) return diff + " min"; if(diff < 1440) return Math.floor(diff/60) + " hr"; return Math.floor(diff/1440) + " days"; })(),
+            cat:p.category||"", icon:CAT_ICONS[p.category]||"tool",
+            body:p.body, offer:p.offer, likes:0, replies:0,
+            urgent:p.urgent, hood:p.neighborhood,
+            avatar_url:p.avatar_url,
+            user_points: ptsMap[p.user_id] ?? p.user_points ?? 0
+          })));
+        });
+        data.forEach(p=>{
+          getLikes(p.id).then(count=>{ setLikeCounts(prev=>({...prev,[p.id]:count})); });
+          supabase.from("comments").select("*").eq("post_id",String(p.id)).order("created_at").then(({data:c})=>{
+            if(c&&c.length) setCmtList(prev=>({...prev,[p.id]:c.map(x=>({txt:x.content,name:x.full_name,ini:x.full_name?x.full_name[0]:"?",col:G,imgUrl:x.avatar_url}))}));
+          });
+        });
+      }
     });
   }
 },[profile?.neighborhood]);
@@ -937,6 +1025,10 @@ const filtPosts = allPosts.filter(p=>{
               <VerBadge size={14}/><span style={{ fontSize:11, fontWeight:700, color:G }}>{t.verBadge}</span>
             </div>
           )}
+          <button onClick={()=>setTab("messages")} style={{ background:"none", border:"none", cursor:"pointer", color:mid, padding:4, position:"relative" }}>
+  <Icon n="msg" size={18}/>
+  {unreadCount>0&&<span style={{ position:"absolute", top:-4, right:-4, width:16, height:16, borderRadius:"50%", background:R, fontSize:9, fontWeight:700, color:"#fff", display:"flex", alignItems:"center", justifyContent:"center" }}>{unreadCount}</span>}
+</button>
           <button onClick={()=>setNotifOpen(!notifOpen)} style={{ background:"none", border:"none", cursor:"pointer", color:mid, padding:4, position:"relative" }}>
            <Icon n="bell" size={18}/>
            {notifCount>0&&<span style={{ position:"absolute", top:-4, right:-4, width:16, height:16, borderRadius:"50%", background:"#E53935", fontSize:9, fontWeight:700, color:"#fff", display:"flex", alignItems:"center", justifyContent:"center" }}>{notifCount}</span>}
@@ -1026,6 +1118,20 @@ const filtPosts = allPosts.filter(p=>{
 </div>
 ))}
 
+<div
+  onClick={()=>setTab("share")}
+  style={{ background:card, border:"1px solid "+bdr, borderRadius:16, padding:"12px 14px", marginBottom:12, display:"flex", alignItems:"center", gap:10, cursor:"pointer" }}
+>
+  <span style={{ width:36, height:36, borderRadius:"50%", background:G, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, fontWeight:700, color:"#fff", flexShrink:0, overflow:"hidden" }}>
+    {profile?.avatar_url
+      ? <img src={profile.avatar_url} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
+      : displayIni}
+  </span>
+  <div style={{ flex:1, background:warm, borderRadius:20, padding:"9px 14px", fontSize:13, color:mid }}>
+    {lang==="NL" ? "Wat heb je vandaag nodig?" : "What do you need today?"}
+  </div>
+</div>
+
             {filtPosts.map((p,i)=>{
               const tc=TCAT[p.type]||TCAT.announce;
               const ac = AVC[p.user?.charCodeAt(0)%AVC.length||0];
@@ -1044,6 +1150,18 @@ const filtPosts = allPosts.filter(p=>{
                           </div>
                         </div>
                         <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
+  {p.user_id===user?.id&&(
+    <div style={{ position:"relative" }}>
+      <button onClick={(e)=>{ e.stopPropagation(); setPostMenu(postMenu===p.id?null:p.id); }} style={{ background:"none", border:"none", cursor:"pointer", color:mid, padding:"2px 6px", fontSize:16, lineHeight:1 }}>···</button>
+      {postMenu===p.id&&(
+        <div style={{ position:"absolute", right:0, top:24, background:card, border:"1px solid "+bdr, borderRadius:10, zIndex:50, minWidth:130, boxShadow:"0 4px 12px rgba(0,0,0,.08)" }}>
+          <button onClick={async(e)=>{ e.stopPropagation(); await supabase.from("posts").delete().eq("id",p.id); setRealPosts(prev=>prev.filter(x=>x.id!==p.id)); setPostMenu(null); }} style={{ width:"100%", padding:"11px 14px", background:"none", border:"none", cursor:"pointer", fontSize:13, color:R, fontWeight:600, textAlign:"left", display:"flex", alignItems:"center", gap:8 }}>
+            <Icon n="alert" size={14} color={R}/> {lang==="NL"?"Verwijderen":"Delete post"}
+          </button>
+        </div>
+      )}
+    </div>
+  )}
                           <div style={{ display:"flex", alignItems:"center", gap:4, background:tc.bg, padding:"3px 8px", borderRadius:20 }}>
                             <Icon n={p.icon} size={11} color={tc.color}/><span style={{ fontSize:11, fontWeight:700, color:tc.color }}>{p.cat}</span>
                           </div>
@@ -1189,44 +1307,138 @@ const filtPosts = allPosts.filter(p=>{
         )}
 
         {tab==="events"&&(
-          <div style={{ padding:"18px 16px" }}>
-            <h2 style={{ margin:"0 0 18px", fontSize:20, fontWeight:700, color:ink, fontFamily:"Playfair Display,serif" }}>{t.evTitle}</h2>
-            {success==="ev"?(
-              <div style={{ textAlign:"center", padding:"60px 0" }}>
-                <div style={{ width:64, height:64, background:GL, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 14px" }}>
-                  <Icon n="check" size={28} color={G} sw={2.5}/>
-                </div>
-                <div style={{ fontSize:18, fontWeight:700, color:ink }}>{t.okEv}</div>
-                <div style={{ fontSize:14, color:mid, marginTop:6 }}>{t.okEvSub}</div>
-              </div>
-            ):(
-              <div>
-                <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:18 }}>
-                  {t.evTypes.map((ev,i)=>(
-                    <button key={i} onClick={()=>setEvType(i)} style={{ display:"flex", alignItems:"center", gap:7, padding:"8px 14px", borderRadius:20, border:"1.5px solid "+(evType===i?G:bdr), background:evType===i?GL:card, cursor:"pointer", transition:"all .2s" }}>
-                      <Icon n={t.evIcons[i]} size={14} color={evType===i?G:mid}/><span style={{ fontSize:13, fontWeight:600, color:evType===i?G:ink }}>{ev}</span>
-                    </button>
-                  ))}
-                </div>
-                {[["calendar",t.evName,evName,setEvName],["clock",t.evDate,evDate,setEvDate],["mapPin",t.evLoc,evLoc,setEvLoc]].map(([icon,ph,val,set],i)=>(
-                  <div key={i} style={{ display:"flex", alignItems:"center", gap:10, background:card, border:"1.5px solid "+bdr, borderRadius:12, padding:"12px 14px", marginBottom:10 }}>
-                    <Icon n={icon} size={16} color={mid}/><input value={val} onChange={e=>set(e.target.value)} placeholder={ph} style={{ flex:1, border:"none", outline:"none", background:"transparent", fontSize:14, color:ink, fontFamily:"DM Sans,sans-serif" }}/>
-                  </div>
-                ))}
-                {!verified&&(
-                  <div style={{ background:GL, border:"1px solid "+G+"30", borderRadius:12, padding:"11px 14px", marginBottom:14, display:"flex", gap:10, alignItems:"center" }}>
-                    <Icon n="shield" size={18} color={G}/>
-                    <span style={{ flex:1, fontSize:13, fontWeight:600, color:G }}>{t.verReq}</span>
-                    <button onClick={()=>setShowVer(true)} style={{ padding:"5px 12px", background:G, color:"#fff", border:"none", borderRadius:8, fontSize:12, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>{t.verNow}</button>
-                  </div>
-                )}
-                <button onClick={submitEv} style={{ width:"100%", padding:"14px 0", background:G, color:"#fff", border:"none", borderRadius:14, fontSize:15, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
-                  <Icon n="leaf" size={16} color="#fff"/> {t.evSubmit}
+  (()=>{
+    const userPoints = profile?.points || 0;
+    const isLocked = userPoints < 10000;
+    const pct = Math.min(100, (userPoints / 10000) * 100);
+
+    if(isLocked) return (
+      <div style={{ minHeight:"calc(100vh - 120px)", background:"#0f0e0c", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"32px 24px", gap:20 }}>
+        <div style={{ width:72, height:72, background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <Icon n="lock" size={28} color="rgba(255,255,255,0.35)"/>
+        </div>
+        <div style={{ textAlign:"center" }}>
+          <div style={{ fontSize:20, fontWeight:700, color:"#fff", fontFamily:"Playfair Display,serif", marginBottom:8 }}>
+            {lang==="NL"?"Een mysterieuze plek":"A mysterious place"}
+          </div>
+          <div style={{ fontSize:13, color:"rgba(255,255,255,0.4)", lineHeight:1.7, maxWidth:260 }}>
+            {lang==="NL"
+              ?"Dit gebied opent voor actieve buren met 10.000 Co‑Points."
+              :"This area unlocks for active neighbors with 10,000 Co‑Points."}
+          </div>
+        </div>
+        <div style={{ width:"100%", maxWidth:280 }}>
+          <div style={{ height:5, background:"rgba(255,255,255,0.07)", borderRadius:3, overflow:"hidden" }}>
+            <div style={{ width:pct+"%", height:"100%", background:G, borderRadius:3, transition:"width .4s" }}/>
+          </div>
+          <div style={{ display:"flex", justifyContent:"space-between", marginTop:6, fontSize:11, color:"rgba(255,255,255,0.25)" }}>
+            <span>{userPoints.toLocaleString()} pts</span>
+            <span>10.000 pts</span>
+          </div>
+        </div>
+        <div style={{ fontSize:12, color:"rgba(255,255,255,0.2)" }}>
+          {lang==="NL"
+            ?`Nog ${(10000-userPoints).toLocaleString()} punten nodig`
+            :`${(10000-userPoints).toLocaleString()} more points to unlock`}
+        </div>
+      </div>
+    );
+
+    return (
+      <div style={{ padding:"18px 16px" }}>
+        <h2 style={{ margin:"0 0 18px", fontSize:20, fontWeight:700, color:ink, fontFamily:"Playfair Display,serif" }}>{t.evTitle}</h2>
+        {success==="ev"?(
+          <div style={{ textAlign:"center", padding:"60px 0" }}>
+            <div style={{ width:64, height:64, background:GL, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 14px" }}>
+              <Icon n="check" size={28} color={G} sw={2.5}/>
+            </div>
+            <div style={{ fontSize:18, fontWeight:700, color:ink }}>{t.okEv}</div>
+            <div style={{ fontSize:14, color:mid, marginTop:6 }}>{t.okEvSub}</div>
+          </div>
+        ):(
+          <div>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:18 }}>
+              {t.evTypes.map((ev,i)=>(
+                <button key={i} onClick={()=>setEvType(i)} style={{ display:"flex", alignItems:"center", gap:7, padding:"8px 14px", borderRadius:20, border:"1.5px solid "+(evType===i?G:bdr), background:evType===i?GL:card, cursor:"pointer", transition:"all .2s" }}>
+                  <Icon n={t.evIcons[i]} size={14} color={evType===i?G:mid}/><span style={{ fontSize:13, fontWeight:600, color:evType===i?G:ink }}>{ev}</span>
                 </button>
+              ))}
+            </div>
+            {[["calendar",t.evName,evName,setEvName],["clock",t.evDate,evDate,setEvDate],["mapPin",t.evLoc,evLoc,setEvLoc]].map(([icon,ph,val,set],i)=>(
+              <div key={i} style={{ display:"flex", alignItems:"center", gap:10, background:card, border:"1.5px solid "+bdr, borderRadius:12, padding:"12px 14px", marginBottom:10 }}>
+                <Icon n={icon} size={16} color={mid}/><input value={val} onChange={e=>set(e.target.value)} placeholder={ph} style={{ flex:1, border:"none", outline:"none", background:"transparent", fontSize:14, color:ink, fontFamily:"DM Sans,sans-serif" }}/>
+              </div>
+            ))}
+            {!verified&&(
+              <div style={{ background:GL, border:"1px solid "+G+"30", borderRadius:12, padding:"11px 14px", marginBottom:14, display:"flex", gap:10, alignItems:"center" }}>
+                <Icon n="shield" size={18} color={G}/>
+                <span style={{ flex:1, fontSize:13, fontWeight:600, color:G }}>{t.verReq}</span>
+                <button onClick={()=>setShowVer(true)} style={{ padding:"5px 12px", background:G, color:"#fff", border:"none", borderRadius:8, fontSize:12, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>{t.verNow}</button>
               </div>
             )}
+            <button onClick={submitEv} style={{ width:"100%", padding:"14px 0", background:G, color:"#fff", border:"none", borderRadius:14, fontSize:15, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
+              <Icon n="leaf" size={16} color="#fff"/> {t.evSubmit}
+            </button>
           </div>
         )}
+      </div>
+    );
+  })()
+)}
+
+{tab==="spots"&&(
+  <div style={{ position:"relative", minHeight:"78vh", overflow:"hidden", background:bg }}>
+    <CoSpotsCanvas/>
+    <div style={{ position:"relative", zIndex:2, display:"flex", flexDirection:"column", minHeight:"78vh", padding:"20px 16px" }}>
+      <div style={{ marginBottom:32 }}>
+        <h2 style={{ fontSize:22, fontWeight:700, color:ink, fontFamily:"Playfair Display,serif", margin:0 }}>Co-Spots</h2>
+        <div style={{ fontSize:11, color:mid, marginTop:2 }}>{displayHood}, Amsterdam</div>
+      </div>
+      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:28, paddingBottom:40, textAlign:"center" }}>
+        <div style={{ position:"relative", width:88, height:88, display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <div style={{ position:"absolute", inset:0, borderRadius:"50%", border:"1px solid rgba(61,107,53,0.25)", animation:"pulseRing 2.8s ease-out infinite" }}/>
+          <div style={{ position:"absolute", inset:-14, borderRadius:"50%", border:"1px solid rgba(61,107,53,0.1)", animation:"pulseRing 2.8s ease-out infinite", animationDelay:".7s" }}/>
+          <div style={{ width:88, height:88, borderRadius:"50%", background:GL, border:"1.5px solid rgba(61,107,53,0.25)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <Icon n="mapPin" size={34} color={G} sw={1.5}/>
+          </div>
+        </div>
+        <div>
+          <div style={{ fontSize:10, fontWeight:700, letterSpacing:2.5, color:mid, textTransform:"uppercase" }}>Coming soon</div>
+          <div style={{ fontSize:24, fontWeight:700, color:ink, fontFamily:"Playfair Display,serif", lineHeight:1.35, marginTop:8 }}>Kindness has a map.</div>
+          <div style={{ fontSize:13, color:mid, lineHeight:1.75, maxWidth:255, margin:"12px auto 0" }}>The places where your neighborhood shows up for each other.</div>
+        </div>
+      </div>
+    </div>
+    <style>{"@keyframes pulseRing{0%{transform:scale(1);opacity:.5}100%{transform:scale(1.6);opacity:0}}"}</style>
+  </div>
+)}
+
+{tab==="commons"&&(
+  <div style={{ position:"relative", minHeight:"78vh", overflow:"hidden", background:bg }}>
+    <CoCommonsCanvas/>
+    <div style={{ position:"relative", zIndex:2, display:"flex", flexDirection:"column", minHeight:"78vh", padding:"20px 16px" }}>
+      <div style={{ marginBottom:32 }}>
+        <h2 style={{ fontSize:22, fontWeight:700, color:ink, fontFamily:"Playfair Display,serif", margin:0 }}>Co-Commons</h2>
+        <div style={{ fontSize:11, color:mid, marginTop:2 }}>{displayHood}, Amsterdam</div>
+      </div>
+      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:28, paddingBottom:40, textAlign:"center" }}>
+        <div style={{ position:"relative", width:88, height:88, display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <div style={{ position:"absolute", inset:0, borderRadius:"50%", border:"1px solid rgba(186,117,23,0.25)", animation:"pulseRing 2.8s ease-out infinite" }}/>
+          <div style={{ position:"absolute", inset:-14, borderRadius:"50%", border:"1px solid rgba(186,117,23,0.1)", animation:"pulseRing 2.8s ease-out infinite", animationDelay:".7s" }}/>
+          <div style={{ width:88, height:88, borderRadius:"50%", background:"#FAEEDA", border:"1.5px solid rgba(186,117,23,0.25)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <Icon n="bag" size={34} color="#854F0B" sw={1.5}/>
+          </div>
+        </div>
+        <div>
+          <div style={{ fontSize:10, fontWeight:700, letterSpacing:2.5, color:mid, textTransform:"uppercase" }}>Coming soon</div>
+          <div style={{ fontSize:24, fontWeight:700, color:ink, fontFamily:"Playfair Display,serif", lineHeight:1.35, marginTop:8 }}>Your points,<br/>made real.</div>
+          <div style={{ fontSize:13, color:mid, lineHeight:1.75, maxWidth:255, margin:"12px auto 0" }}>Every connection makes the neighborhood stronger.</div>
+        </div>
+      </div>
+    </div>
+    <style>{"@keyframes pulseRing{0%{transform:scale(1);opacity:.5}100%{transform:scale(1.6);opacity:0}}"}</style>
+  </div>
+)}
 
         {tab==="messages"&&(
           <div style={{ padding:"18px 16px" }}>
@@ -1387,9 +1599,9 @@ const filtPosts = allPosts.filter(p=>{
 
       <div style={{ background:dm?"#1A1510":"#fff", borderTop:"1px solid "+bdr, display:"flex", padding:"8px 0 4px", position:"sticky", bottom:0, zIndex:50 }}>
         <NavBtn k="feed" icon="home" label={t.feed}/>
-        <NavBtn k="share" icon="send" label={t.share}/>
         <NavBtn k="events" icon="calendar" label={t.events}/>
-        <NavBtn k="messages" icon="msg" label={t.messages} badge={unreadCount}/>
+        <NavBtn k="spots" icon="mapPin" label="Co-Spots"/>
+        <NavBtn k="commons" icon="bag" label="Co-Commons"/>
         <NavBtn k="profile" icon="user" label={t.profile}/>
       </div>
 
