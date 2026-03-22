@@ -768,6 +768,9 @@ useEffect(()=>{
   const [convMessages, setConvMessages] = useState([]);
   const convEndRef = useRef(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [notifications, setNotifications] = useState([]);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifCount, setNotifCount] = useState(0);
   const [profileLoading, setProfileLoading] = useState(true);
   const [showEditProfile, setShowEditProfile] = useState(false);
 
@@ -832,6 +835,13 @@ useEffect(()=>{
         setRealMessages(data);
         setUnreadCount(data.filter(m=>m.receiver_id===user.id&&!m.read).length);
       }
+    });
+  }
+},[user]);
+useEffect(()=>{
+  if(user?.id){
+    supabase.from('notifications').select('*').eq('user_id',user.id).order('created_at',{ascending:false}).then(({data})=>{
+      if(data){ setNotifications(data); setNotifCount(data.filter(n=>!n.read).length); }
     });
   }
 },[user]);
@@ -911,7 +921,30 @@ const filtPosts = allPosts.filter(p=>{
               <VerBadge size={14}/><span style={{ fontSize:11, fontWeight:700, color:G }}>{t.verBadge}</span>
             </div>
           )}
-          <button style={{ background:"none", border:"none", cursor:"pointer", color:mid, padding:4 }}><Icon n="bell" size={18}/></button>
+          <button onClick={()=>setNotifOpen(!notifOpen)} style={{ background:"none", border:"none", cursor:"pointer", color:mid, padding:4, position:"relative" }}>
+           <Icon n="bell" size={18}/>
+           {notifCount>0&&<span style={{ position:"absolute", top:-4, right:-4, width:16, height:16, borderRadius:"50%", background:"#E53935", fontSize:9, fontWeight:700, color:"#fff", display:"flex", alignItems:"center", justifyContent:"center" }}>{notifCount}</span>}
+          </button>
+          {notifOpen&&(
+            <div style={{ position:"absolute", top:56, right:16, width:300, background:card, border:"1px solid "+bdr, borderRadius:16, boxShadow:"0 4px 20px rgba(0,0,0,.1)", zIndex:200, maxHeight:400, overflowY:"auto" }}>
+              <div style={{ padding:"14px 16px", borderBottom:"1px solid "+bdr, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <span style={{ fontSize:15, fontWeight:700, color:ink }}>{t.notif||"Notifications"}</span>
+                <button onClick={()=>{ supabase.from('notifications').delete().eq('user_id',user?.id).then(()=>{ setNotifications([]); setNotifCount(0); }); setNotifOpen(false); }} style={{ background:"none", border:"none", fontSize:11, color:G, cursor:"pointer", fontWeight:600 }}>Clear all</button>
+            </div>
+            {notifications.length===0?(
+              <div style={{ padding:"24px 16px", textAlign:"center", color:mid, fontSize:13 }}>No notifications yet</div>
+            ):notifications.map((n,i)=>(
+              <div key={n.id} onClick={()=>{ setNotifOpen(false); setTab("feed"); }} style={{ display:"flex", gap:10, padding:"12px 16px", borderBottom:"1px solid "+bdr, cursor:"pointer", background:n.read?"transparent":GL }}>
+                <Av ini={(n.from_user_name||"?")[0]} size={36} col={G} imgUrl={n.from_avatar_url}/>
+                <div style={{ flex:1 }}>
+                  <span style={{ fontSize:13, color:ink, fontWeight:600 }}>{n.from_user_name}</span>
+                  <span style={{ fontSize:13, color:mid }}>{n.type==="likes"?" liked your post":" commented on your post"}</span>
+                  <div style={{ fontSize:11, color:mid, marginTop:2 }}>{n.post_body?.substring(0,40)}...</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
           <button onClick={()=>setDm(!dm)} style={{ background:"none", border:"none", cursor:"pointer", color:mid, padding:4 }}><Icon n={dm?"sun":"moon"} size={18}/></button>
         </div>
       </div>
@@ -1019,7 +1052,7 @@ const filtPosts = allPosts.filter(p=>{
                     </button>
                   )}
                   <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                    <button onClick={async()=>{ const newState = await toggleLike(p.id, user?.id); setLiked(prev=>({...prev,[p.id]:newState})); setLikeCounts(prev=>({...prev,[p.id]:(prev[p.id]||0)+(newState?1:-1)})); }} style={{ display:"flex", alignItems:"center", gap:4, padding:"6px 12px", borderRadius:20, border:"1.5px solid "+(liked[p.id]?"#E53935":bdr), background:liked[p.id]?"#FFF0F0":"transparent", color:liked[p.id]?"#E53935":mid, cursor:"pointer", fontSize:12, fontWeight:600, transition:"all .2s" }}>
+                    <button onClick={async()=>{ const newState = await toggleLike(p.id, user?.id); setLiked(prev=>({...prev,[p.id]:newState})); setLikeCounts(prev=>({...prev,[p.id]:(prev[p.id]||0)+(newState?1:-1)})); if(newState && p.user_id && p.user_id !== user?.id){ supabase.from('notifications').insert({ user_id:p.user_id, from_user_id:user?.id, from_user_name:displayName, from_avatar_url:profile?.avatar_url, type:'like', post_id:String(p.id), post_body:p.body }); } }} style={{ display:"flex", alignItems:"center", gap:4, padding:"6px 12px", borderRadius:20, border:"1.5px solid "+(liked[p.id]?"#E53935":bdr), background:liked[p.id]?"#FFF0F0":"transparent", color:liked[p.id]?"#E53935":mid, cursor:"pointer", fontSize:12, fontWeight:600, transition:"all .2s" }}>
                       {liked[p.id]?(<svg width="13" height="13" viewBox="0 0 24 24" fill="#E53935"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>):(<Icon n="heart" size={13} color={mid}/>)}
                       {likeCounts[p.id]||0}
                     </button>
@@ -1049,7 +1082,7 @@ const filtPosts = allPosts.filter(p=>{
                         <Av ini={displayIni} size={28} col={G} imgUrl={profile?.avatar_url}/>
                         <div style={{ flex:1, display:"flex", gap:6, background:warm, border:"1.5px solid "+bdr, borderRadius:20, padding:"6px 6px 6px 12px", alignItems:"center" }}>
                           <input value={cmtInput[p.id]||""} onChange={e=>setCmtInput(prev=>({...prev,[p.id]:e.target.value}))} placeholder={lang==="NL"?"Schrijf een reactie...":"Write a comment..."} style={{ flex:1, border:"none", outline:"none", background:"transparent", fontSize:13, color:ink, fontFamily:"DM Sans,sans-serif" }}/>
-                          <button onClick={()=>{ if(cmtInput[p.id]?.trim()){ saveComment(p.id,user?.id,displayName,cmtInput[p.id],profile?.avatar_url); setCmtList(prev=>({...prev,[p.id]:[...(prev[p.id]||[]),{txt:cmtInput[p.id],ini:displayIni,name:displayName,col:G,imgUrl:profile?.avatar_url}]})); setCmtInput(prev=>({...prev,[p.id]:""})); } }} style={{ width:28, height:28, borderRadius:"50%", background:G, border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                          <button onClick={()=>{ if(cmtInput[p.id]?.trim()){ saveComment(p.id,user?.id,displayName,cmtInput[p.id],profile?.avatar_url); setCmtList(prev=>({...prev,[p.id]:[...(prev[p.id]||[]),{txt:cmtInput[p.id],ini:displayIni,name:displayName,col:G,imgUrl:profile?.avatar_url}]})); if(p.user_id && p.user_id !== user?.id){ supabase.from('notifications').insert({ user_id:p.user_id, from_user_id:user?.id, from_user_name:displayName, from_avatar_url:profile?.avatar_url, type:'comment', post_id:String(p.id), post_body:p.body }); } setCmtInput(prev=>({...prev,[p.id]:""})); } }} style={{ width:28, height:28, borderRadius:"50%", background:G, border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
                             <Icon n="send" size={13} color="#fff"/>
                           </button>
                         </div>
