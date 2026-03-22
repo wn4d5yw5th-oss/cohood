@@ -242,6 +242,10 @@ const TXT = {
 };
 
 const TCAT = { help:{color:R,bg:RL}, event:{color:G,bg:GL}, announce:{color:BL,bg:BLL} };
+const CAT_ICONS = {
+  "Repair":"tool","Shopping":"bag","Transport":"car","Childcare":"baby","Garden":"leaf","Tutoring":"star","Translation":"globe","Other":"msg",
+  "Reparatie":"tool","Boodschappen":"bag","Vervoer":"car","Kinderopvang":"baby","Tuin":"leaf","Bijles":"star","Vertaling":"globe","Anders":"msg"
+};
 
 function InputField({ icon, ph, val, onChange, isPass }) {
   const [focused, setFocused] = useState(false);
@@ -818,7 +822,7 @@ useEffect(()=>{
       if(data) setRealPosts(data.map(p=>({
         id:p.id, user_id:p.user_id, type:p.type||"help", user:p.full_name||"User",
         ini:(p.full_name||"U")[0].toUpperCase(), ver:false,
-        time: (() => { const diff = Math.floor((Date.now() - new Date(p.created_at).getTime()) / 60000); if(diff < 1) return "just now"; if(diff < 60) return diff + " min"; if(diff < 1440) return Math.floor(diff/60) + " hr"; return Math.floor(diff/1440) + " days"; })(), cat:p.category||"", icon:"tool",
+        time: (() => { const diff = Math.floor((Date.now() - new Date(p.created_at).getTime()) / 60000); if(diff < 1) return "just now"; if(diff < 60) return diff + " min"; if(diff < 1440) return Math.floor(diff/60) + " hr"; return Math.floor(diff/1440) + " days"; })(), cat:p.category||"", icon:CAT_ICONS[p.category]||"tool",
         body:p.body, offer:p.offer, likes:0, replies:0,
         urgent:p.urgent, hood:p.neighborhood,
         avatar_url:p.avatar_url, user_points:p.user_points||0
