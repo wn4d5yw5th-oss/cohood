@@ -86,27 +86,7 @@ const Av = ({ ini, size=40, col=G, ver=false, imgUrl=null }) => (
   </span>
 );
 
-const POSTS = {
-  EN:[
-    { id:1, type:"help", user:"Fatma K.", ini:"FK", ver:true, time:"12 min", cat:"Repair", icon:"tool", body:"Kitchen faucet is dripping, can anyone help with plumbing?", offer:"I can help with Turkish-Dutch translation.", likes:4, replies:2, urgent:true, hood:"De Pijp" },
-    { id:2, type:"event", user:"Jan V.", ini:"JV", ver:true, time:"1 hr", cat:"Urban Farming", icon:"leaf", body:"This Saturday we are planting tomatoes on the rooftop garden. All supplies provided!", offer:null, likes:14, replies:7, urgent:false, hood:"Jordaan", date:"Sat 14:00" },
-    { id:3, type:"help", user:"Maria S.", ini:"MS", ver:false, time:"2 hr", cat:"Shopping", icon:"bag", body:"Down with the flu, could someone pick up my groceries?", offer:"I love cooking and can bring meals to neighbors.", likes:9, replies:5, urgent:true, hood:"Oud-West" },
-    { id:4, type:"announce", user:"CoHood Admin", ini:"CA", ver:true, time:"Yesterday", cat:"Announcement", icon:"bell", body:"Neighborhood meeting Thursday 19:00 at Gemeentehuis. Agenda: park renovation.", offer:null, likes:28, replies:12, urgent:false, hood:"All Neighborhood" },
-  ],
-  NL:[
-    { id:1, type:"help", user:"Fatma K.", ini:"FK", ver:true, time:"12 min", cat:"Reparatie", icon:"tool", body:"Keukenkraan lekt, kan iemand helpen met loodgieterwerk?", offer:"Ik kan helpen met Turks-Nederlands vertaalwerk.", likes:4, replies:2, urgent:true, hood:"De Pijp" },
-    { id:2, type:"event", user:"Jan V.", ini:"JV", ver:true, time:"1 uur", cat:"Stadslandbouw", icon:"leaf", body:"Deze zaterdag planten we tomaten op de dakmoestuin. Alle spullen aanwezig!", offer:null, likes:14, replies:7, urgent:false, hood:"Jordaan", date:"Za 14:00" },
-    { id:3, type:"help", user:"Maria S.", ini:"MS", ver:false, time:"2 uur", cat:"Boodschappen", icon:"bag", body:"Ik lig ziek, kan iemand mijn boodschappen doen?", offer:"Ik kook graag en kan maaltijden brengen.", likes:9, replies:5, urgent:true, hood:"Oud-West" },
-    { id:4, type:"announce", user:"CoHood Admin", ini:"CA", ver:true, time:"Gisteren", cat:"Aankondiging", icon:"bell", body:"Buurtbijeenkomst donderdag 19:00 in Gemeentehuis. Agenda: parkrenovatie.", offer:null, likes:28, replies:12, urgent:false, hood:"Hele Buurt" },
-  ],
-};
-
-const CONVS = [
-  { id:1, ini:"FK", col:AVC[0], name:"Fatma K.", ver:true, unread:2, mine:false },
-  { id:2, ini:"JV", col:AVC[1], name:"Jan V.", ver:true, unread:0, mine:false },
-  { id:3, ini:"MS", col:AVC[2], name:"Maria S.", ver:false, unread:0, mine:true },
-  { id:4, ini:"CA", col:AVC[3], name:"CoHood Admin", ver:true, unread:1, mine:false },
-];
+const POSTS = { EN:[], NL:[] };
 
 const TXT = {
   EN:{
@@ -863,8 +843,8 @@ function EventFeedCard({ ev, userId, attending, attendees, onAttend, onCancel, e
               <div style={{ position:"relative" }}>
                 <button onClick={(e)=>{ e.stopPropagation(); setShowMenu(m=>!m); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#3D6B35", padding:"2px 4px", fontSize:14, lineHeight:1, fontWeight:700 }}>···</button>
                 {showMenu&&(
-                  <div style={{ position:"absolute", right:0, top:24, background:"#fff", border:"1px solid #E2D9CC", borderRadius:10, zIndex:50, minWidth:190, boxShadow:"0 4px 12px rgba(0,0,0,.08)" }}>
-                    <button onClick={async(e)=>{ e.stopPropagation(); if(!window.confirm(lang==="NL"?"Als u dit evenement annuleert, verliest u 300 Co-Points. Weet u het zeker?":"Cancelling this event will cost you 300 Co-Points. Are you sure?")) return; await supabase.from('events').update({status:'cancelled'}).eq('id',ev.id); await supabase.from('notifications').insert((eventAttendeesMap[ev.id]||[]).filter(a=>a.status==='joining'&&a.user_id!==userId).map(a=>({ user_id:a.user_id, from_user_id:userId, from_user_name:ev.organizer_name, type:'event_cancelled', post_id:String(ev.id), post_body:ev.title, read:false }))); setShowMenu(false); onCancel(ev.id); }} style={{ width:"100%", padding:"11px 14px", background:"none", border:"none", cursor:"pointer", fontSize:11, color:"#C44B1A", fontWeight:600, textAlign:"left", display:"flex", alignItems:"center", gap:8 }}>
+                  <div style={{ position:"absolute", right:0, top:24, background:"#fff", border:"1px solid #E2D9CC", borderRadius:10, zIndex:50, minWidth:225, boxShadow:"0 4px 12px rgba(0,0,0,.08)" }}>
+                    <button onClick={async(e)=>{ e.stopPropagation(); if(!window.confirm(lang==="NL"?"Als u dit evenement annuleert, verliest u 300 Co-Points. Weet u het zeker?":"Cancelling this event will cost you 300 Co-Points. Are you sure?")) return; await supabase.from('events').update({status:'cancelled'}).eq('id',ev.id); await supabase.from('notifications').insert((eventAttendeesMap[ev.id]||[]).filter(a=>a.status==='joining'&&a.user_id!==userId).map(a=>({ user_id:a.user_id, from_user_id:userId, from_user_name:ev.organizer_name, from_avatar_url:ev.organizer_avatar||null, type:'event_cancelled', post_id:String(ev.id), post_body:ev.title, read:false }))); setShowMenu(false); onCancel(ev.id); }} style={{ width:"100%", padding:"11px 14px", background:"none", border:"none", cursor:"pointer", fontSize:11, color:"#C44B1A", fontWeight:600, textAlign:"left", display:"flex", alignItems:"center", gap:8 }}>
                       <Icon n="alert" size={14} color="#C44B1A"/> Cancel Event (−300 Co-Points)
                     </button>
                   </div>
@@ -1198,6 +1178,7 @@ const submitEv = () => requireVer(async()=>{
   const h = evAmPm==="PM"&&evHour!==12?evHour+12:evAmPm==="AM"&&evHour===12?0:evHour;
   const eventDate = new Date(evYear,evMonth,evDay,h,0);
   const {data,error} = await supabase.from('events').insert({ user_id:user?.id, organizer_name:displayName, organizer_avatar:profile?.avatar_url||null, neighborhood:displayHood, type:evTypes[evType], title:evName, location:evLoc, event_date:eventDate.toISOString(), status:'active' }).select().single();
+  
   if(!error&&data){
     
     setRealEvents(prev=>[{...data,time:"just now",hood:displayHood},...prev]);
@@ -1231,7 +1212,7 @@ const submitEv = () => requireVer(async()=>{
 const sendDm = async() => { if(dmText.trim()){ await sendMessage(user?.id, dmPost?.user_id||dmPost?.id, displayName, dmPost?.user||"User", dmPost?.id, dmText, profile?.avatar_url); if(dmPost?.user_id && dmPost?.user_id !== user?.id){const {data:hd, error:he} = await supabase.from('help_requests').insert({ post_id:String(dmPost?.id), post_body:dmPost?.body, requester_id:dmPost?.user_id, requester_name:dmPost?.user, helper_id:user?.id, helper_name:displayName, status:'pending', offer_body:dmPost?.offer }); } setDmSent(true); setTimeout(()=>{ setDmSent(false); setDmPost(null); setDmText(""); },1800); } };
 const userHood = profile?.neighborhood || user?.user_metadata?.neighborhood;
 const eventsAsPosts = realEvents.map(e=>({...e, isEvent:true, user:e.organizer_name, ini:(e.organizer_name||'E')[0].toUpperCase(), avatar_url:e.organizer_avatar, time:(()=>{ const diff=Math.floor((Date.now()-new Date(e.created_at).getTime())/60000); if(diff<1) return "just now"; if(diff<60) return diff+" min"; if(diff<1440) return Math.floor(diff/60)+" hr"; return Math.floor(diff/1440)+" days"; })(), hood:e.neighborhood, type:e.type }));
-const allPosts = [...realPosts, ...eventsAsPosts, ...posts.filter(p=>p.hood===displayHood||p.hood==="All Neighborhood"||p.hood==="Hele Buurt")];   
+const allPosts = [...realPosts, ...eventsAsPosts, ...posts.filter(p=>p.hood===displayHood||p.hood==="All Neighborhood"||p.hood==="Hele Buurt")].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));   
 const filtPosts = allPosts.filter(p=>{
   if(filter==="all") return true;
   if(filter==="help") return p.type==="help" && !p.isEvent;
@@ -1924,12 +1905,7 @@ const filtPosts = allPosts.filter(p=>{
                   )}
                 </div>
               </div>
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 16px", borderBottom:"1px solid "+bdr }}>
-                <div style={{ display:"flex", alignItems:"center", gap:10 }}><Icon n="moon" size={17} color={G}/><span style={{ fontSize:14, fontWeight:500, color:ink }}>{t.darkMode}</span></div>
-                <button onClick={()=>setDm(!dm)} style={{ width:44, height:24, borderRadius:12, border:"none", background:dm?G:bdr, cursor:"pointer", position:"relative", transition:"all .2s" }}>
-                  <div style={{ position:"absolute", top:2, left:dm?22:2, width:20, height:20, borderRadius:"50%", background:"#fff", transition:"all .2s" }}/>
-                </button>
-              </div>
+              
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 16px", borderBottom:"1px solid "+bdr }}>
                 <div style={{ display:"flex", alignItems:"center", gap:10 }}><Icon n="shield" size={17} color={G}/><span style={{ fontSize:14, fontWeight:500, color:ink }}>{t.idVer}</span></div>
                 {verified
@@ -1937,10 +1913,7 @@ const filtPosts = allPosts.filter(p=>{
                   :<button onClick={()=>setShowVer(true)} style={{ padding:"5px 12px", background:G, color:"#fff", border:"none", borderRadius:8, fontSize:12, fontWeight:700, cursor:"pointer" }}>{t.verNow}</button>
                 }
               </div>
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 16px" }}>
-                <div style={{ display:"flex", alignItems:"center", gap:10 }}><Icon n="bell" size={17} color={G}/><span style={{ fontSize:14, fontWeight:500, color:ink }}>{t.notif}</span></div>
-                <Icon n="chevronRight" size={16} color={mid}/>
-              </div>
+            
             </div>
             <button onClick={onLogout} style={{ width:"100%", padding:"13px 0", background:"transparent", color:R, border:"1.5px solid "+R+"30", borderRadius:14, fontSize:14, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
               <Icon n="back" size={16} color={R}/> {t.logout}
@@ -2007,7 +1980,7 @@ const filtPosts = allPosts.filter(p=>{
             ):(
               <div>
                 <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
-                  <Av ini={dmPost.ini} size={36} col={AVC[(dmPost.id-1)%AVC.length]} ver={dmPost.ver}/>
+                  <Av ini={dmPost.ini} size={36} col={AVC[(dmPost.id-1)%AVC.length]} ver={dmPost.ver} imgUrl={dmPost.avatar_url}/>
                   <div>
                     <div style={{ fontSize:14, fontWeight:700, color:ink }}>{dmPost.user}</div>
                     <div style={{ fontSize:12, color:mid }}>{lang==="NL"?"Direct bericht":"Direct message"}</div>
