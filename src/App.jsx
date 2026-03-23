@@ -276,7 +276,8 @@ function VerifyModal({ t, dm, onClose, onVerified, user, profile }) {
   };
 
   const submit = async() => {
-    if(!idFile||!selfieFile){ alert("Please upload both files"); return; }
+    if(!phone.trim()){ alert("Please enter your phone number"); return; }
+    if(!idFile||!selfieFile){ alert("Please upload both ID card and selfie"); return; }
     setLoading(true);
     try {
       const uid = user?.id;
@@ -356,7 +357,7 @@ function VerifyModal({ t, dm, onClose, onVerified, user, profile }) {
 
             {/* Phone */}
             <div style={{ marginBottom:14 }}>
-              <div style={{ fontSize:12, fontWeight:700, color:mid, textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>Phone number (optional)</div>
+              <div style={{ fontSize:12, fontWeight:700, color:mid, textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>Phone number </div>
               <div style={{ display:"flex", alignItems:"center", gap:10, background:warm, border:"1.5px solid "+bdr, borderRadius:12, padding:"11px 14px" }}>
                 <Icon n="msg" size={15} color={mid}/>
                 <input value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+31 6 12345678" style={{ flex:1, border:"none", outline:"none", background:"transparent", fontSize:14, color:ink, fontFamily:"DM Sans,sans-serif" }}/>
