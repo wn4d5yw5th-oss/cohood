@@ -243,8 +243,8 @@ const TXT = {
 
 const TCAT = { help:{color:R,bg:RL}, event:{color:G,bg:GL}, announce:{color:BL,bg:BLL} };
 const CAT_ICONS = {
-  "Repair":"tool","Shopping":"bag","Transport":"car","Childcare":"baby","Garden":"leaf","Tutoring":"star","Translation":"globe","Other":"msg",
-  "Reparatie":"tool","Boodschappen":"bag","Vervoer":"car","Kinderopvang":"baby","Tuin":"leaf","Bijles":"star","Vertaling":"globe","Anders":"msg"
+  "Repair":"tool","Shopping":"bag","Transport":"car","Childcare":"baby","Garden":"leaf","Cooking":"star","Translation":"globe","Other":"msg",
+"Reparatie":"tool","Boodschappen":"bag","Vervoer":"car","Kinderopvang":"baby","Tuin":"leaf","Koken":"star","Vertaling":"globe","Anders":"msg"
 };
 
 function InputField({ icon, ph, val, onChange, isPass }) {
@@ -783,6 +783,152 @@ function CoCommonsCanvas(){
   return <canvas ref={ref} style={{ position:"absolute", inset:0, width:"100%", height:"100%", opacity:.5 }}/>;
 }
 
+function EventStarsCanvas(){
+  const ref = useRef(null);
+  useEffect(()=>{
+    const canvas = ref.current; if(!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const resize = ()=>{ canvas.width=canvas.offsetWidth; canvas.height=canvas.offsetHeight; };
+    resize();
+    const COLORS=['rgba(255,220,100,','rgba(160,230,160,','rgba(180,200,255,','rgba(255,180,180,','rgba(200,255,220,'];
+    const stars = Array.from({length:30},()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:Math.random()*1.3+.4,a:Math.random()*.35,da:(Math.random()*.005+.002)*(Math.random()>.5?1:-1),col:COLORS[Math.floor(Math.random()*COLORS.length)]}));
+    let shooting={active:false,x:0,y:0,vx:0,vy:0,a:0};
+    const launch=()=>{ shooting={active:true,x:Math.random()*canvas.width*.5,y:Math.random()*canvas.height*.3,vx:2.5+Math.random()*2,vy:1+Math.random()*1.5,a:1}; };
+    const interval = setInterval(launch, 5500);
+    let raf;
+    const draw=()=>{
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      stars.forEach(s=>{ s.a+=s.da; if(s.a>.38||s.a<.03)s.da*=-1; ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fillStyle=s.col+s.a+')'; ctx.fill(); });
+      if(shooting.active){ shooting.x+=shooting.vx; shooting.y+=shooting.vy; shooting.a-=0.025; const tx=shooting.x-shooting.vx*20,ty=shooting.y-shooting.vy*20; const grad=ctx.createLinearGradient(tx,ty,shooting.x,shooting.y); grad.addColorStop(0,'rgba(255,255,255,0)'); grad.addColorStop(1,`rgba(255,255,255,${Math.max(0,shooting.a)})`); ctx.beginPath(); ctx.moveTo(tx,ty); ctx.lineTo(shooting.x,shooting.y); ctx.strokeStyle=grad; ctx.lineWidth=1.5; ctx.stroke(); if(shooting.a<=0||shooting.x>canvas.width||shooting.y>canvas.height)shooting.active=false; }
+      raf=requestAnimationFrame(draw);
+    };
+    draw();
+    return ()=>{ cancelAnimationFrame(raf); clearInterval(interval); };
+  },[]);
+  return <canvas ref={ref} style={{ position:"absolute", inset:0, width:"100%", height:"100%" }}/>;
+}
+
+function EventBlobCanvas(){
+  const ref=useRef(null);
+  useEffect(()=>{
+    const canvas=ref.current; if(!canvas) return;
+    const ctx=canvas.getContext('2d');
+    const blobs=Array.from({length:8},()=>({x:Math.random()*300,y:Math.random()*200,r:35+Math.random()*55,a:0.07+Math.random()*0.07,da:(Math.random()*.003+.001)*(Math.random()>.5?1:-1),dx:(Math.random()-.5)*.2,dy:(Math.random()-.5)*.15}));
+    let raf;
+    const draw=()=>{
+      canvas.width=canvas.offsetWidth||300; canvas.height=canvas.offsetHeight||180;
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle='#EBF3E8'; ctx.fillRect(0,0,canvas.width,canvas.height);
+      blobs.forEach(b=>{
+        b.x+=b.dx; b.y+=b.dy; b.a+=b.da;
+        if(b.a>.14||b.a<.03)b.da*=-1;
+        if(b.x<-b.r)b.x=canvas.width+b.r; if(b.x>canvas.width+b.r)b.x=-b.r;
+        if(b.y<-b.r)b.y=canvas.height+b.r; if(b.y>canvas.height+b.r)b.y=-b.r;
+        const g=ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,b.r);
+        g.addColorStop(0,`rgba(61,107,53,${b.a})`); g.addColorStop(1,'rgba(61,107,53,0)');
+        ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2); ctx.fillStyle=g; ctx.fill();
+      });
+      raf=requestAnimationFrame(draw);
+    };
+    draw();
+    return ()=>cancelAnimationFrame(raf);
+  },[]);
+  return <canvas ref={ref} style={{ position:"absolute", inset:0, width:"100%", height:"100%" }}/>;
+}
+
+function EventFeedCard({ ev, userId, attending, attendees, onAttend, onCancel, eventAttendeesMap, lang }){
+  const evDate = new Date(ev.event_date);
+  const dateStr = evDate.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+  const timeStr = evDate.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
+  const joining = attending?.status==='joining';
+  const cantgo  = attending?.status==='cant';
+  const joiningAttendees = (attendees||[]).filter(a=>a.status==='joining');
+  const isOrganizer = ev.user_id === userId;
+  const [showMenu, setShowMenu] = useState(false);
+  const typeIcons = {"Urban Farming":"leaf","Neighborhood Clean":"sun","Tea Meetup":"msg","Workshop":"star","Celebration":"bell","Other":"info","Stadslandbouw":"leaf","Buurtschoonmaak":"sun","Thee bijeenkomst":"msg","Feest":"bell","Overig":"info"};
+
+  return (
+    <div style={{ position:"relative", borderRadius:14, overflow:"hidden", border:"1.5px solid #b8d4b0", marginBottom:12 }}>
+      <EventBlobCanvas/>
+      <div style={{ position:"relative", zIndex:1, padding:"11px 14px", background:"rgba(235,243,232,0.65)" }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, position:"relative" }}>
+          <div style={{ display:"inline-flex", alignItems:"center", gap:4, background:"#3D6B35", borderRadius:20, padding:"2px 8px", fontSize:10, fontWeight:700, color:"#fff" }}>
+            <Icon n={typeIcons[ev.type]||"leaf"} size={10} color="#fff"/> {ev.type}
+          </div>
+          <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+            <span style={{ fontSize:12, fontWeight:700, color:"#2C2416" }}>{dateStr}</span>
+            <span style={{ color:"#C8D8C4" }}>·</span>
+            <span style={{ fontSize:11, fontWeight:600, color:"#3D6B35" }}>{timeStr}</span>
+            {isOrganizer&&(
+              <div style={{ position:"relative" }}>
+                <button onClick={(e)=>{ e.stopPropagation(); setShowMenu(m=>!m); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#3D6B35", padding:"2px 4px", fontSize:14, lineHeight:1, fontWeight:700 }}>···</button>
+                {showMenu&&(
+                  <div style={{ position:"absolute", right:0, top:24, background:"#fff", border:"1px solid #E2D9CC", borderRadius:10, zIndex:50, minWidth:190, boxShadow:"0 4px 12px rgba(0,0,0,.08)" }}>
+                    <button onClick={async(e)=>{ e.stopPropagation(); if(!window.confirm(lang==="NL"?"Als u dit evenement annuleert, verliest u 300 Co-Points. Weet u het zeker?":"Cancelling this event will cost you 300 Co-Points. Are you sure?")) return; await supabase.from('events').update({status:'cancelled'}).eq('id',ev.id); await supabase.from('notifications').insert((eventAttendeesMap[ev.id]||[]).filter(a=>a.status==='joining'&&a.user_id!==userId).map(a=>({ user_id:a.user_id, from_user_id:userId, from_user_name:ev.organizer_name, type:'event_cancelled', post_id:String(ev.id), post_body:ev.title, read:false }))); setShowMenu(false); onCancel(ev.id); }} style={{ width:"100%", padding:"11px 14px", background:"none", border:"none", cursor:"pointer", fontSize:11, color:"#C44B1A", fontWeight:600, textAlign:"left", display:"flex", alignItems:"center", gap:8 }}>
+                      <Icon n="alert" size={14} color="#C44B1A"/> Cancel Event (−300 Co-Points)
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:6 }}>
+          <span style={{ width:32, height:32, borderRadius:"50%", background:"#3D6B35", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, color:"#fff", flexShrink:0, overflow:"hidden" }}>
+            {ev.organizer_avatar?<img src={ev.organizer_avatar} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }}/>:(ev.organizer_name||'?')[0].toUpperCase()}
+          </span>
+          <div>
+            <div style={{ fontSize:13, fontWeight:700, color:"#2C2416" }}>{ev.organizer_name}</div>
+            <div style={{ fontSize:11, color:"#A8997E" }}>{ev.neighborhood} · {ev.time}</div>
+          </div>
+        </div>
+
+        <div style={{ fontSize:14, fontWeight:700, color:"#2C2416", lineHeight:1.3, marginBottom:4 }}>{ev.title}</div>
+
+        <div style={{ display:"flex", alignItems:"center", gap:3, fontSize:11, color:"#6B5E4E", marginBottom:6 }}>
+          <Icon n="mapPin" size={10} color="#3D6B35"/> {ev.location}
+        </div>
+
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:2 }}>
+          <div style={{ display:"inline-flex", alignItems:"center", gap:3, background:"#EBF3E8", border:"1px solid rgba(61,107,53,0.2)", borderRadius:20, padding:"2px 8px", fontSize:10, fontWeight:700, color:"#3D6B35" }}>
+            <Icon n="star" size={10} color="#3D6B35" sw={2.5}/> {lang==="NL"?"Deelnemen · +200 Co-Points":"Join · +200 Co-Points"}
+          </div>
+          {joiningAttendees.length>0&&(
+            <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+              <div style={{ display:"flex" }}>
+                {joiningAttendees.slice(0,4).map((a,i)=>(
+                  <span key={a.id} style={{ width:18, height:18, borderRadius:"50%", border:"1.5px solid #fff", marginLeft:i===0?0:-4, background:"#3D6B35", display:"flex", alignItems:"center", justifyContent:"center", fontSize:7, fontWeight:700, color:"#fff", overflow:"hidden", flexShrink:0 }}>
+                    {a.avatar_url?<img src={a.avatar_url} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }}/>:(a.user_name||'?')[0].toUpperCase()}
+                  </span>
+                ))}
+              </div>
+              <span style={{ fontSize:10, color:"#A8997E" }}>{joiningAttendees.length} {lang==="NL"?"aanwezig":"attending"}</span>
+            </div>
+          )}
+        </div>
+
+        {isOrganizer?(
+          <div style={{ marginTop:8, padding:"7px 12px", background:"#EBF3E8", borderRadius:8, fontSize:12, color:"#3D6B35", fontWeight:600 }}>
+            {lang==="NL"?"Jouw evenement · "+joiningAttendees.length+" aanwezig":"Your event · "+joiningAttendees.length+" attending"}
+          </div>
+        ):(
+          <div style={{ display:"flex", gap:6, marginTop:8 }}>
+            <button onClick={()=>onAttend('joining')} style={{ flex:1, padding:"7px 0", background:joining?"#2A5228":"#3D6B35", border:"none", borderRadius:8, fontSize:12, fontWeight:700, color:"#fff", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:4, fontFamily:"DM Sans,sans-serif" }}>
+              <Icon n="check" size={11} color="#fff" sw={2.5}/>
+              {joining?(lang==="NL"?"Aangemeld ✓":"Attending ✓"):(lang==="NL"?"Ik ga":"I'm attending")}
+            </button>
+            <button onClick={()=>onAttend('cant')} style={{ flex:1, padding:"7px 0", background:cantgo?"#fcebeb":"transparent", border:"1.5px solid "+(cantgo?"#f09595":"#C8D8C4"), borderRadius:8, fontSize:12, fontWeight:600, color:cantgo?"#A32D2D":"#6B5E4E", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:4, fontFamily:"DM Sans,sans-serif" }}>
+              <Icon n="alert" size={11} color={cantgo?"#A32D2D":"#6B5E4E"}/>
+              {cantgo?(lang==="NL"?"Niet aanwezig":"Not going"):(lang==="NL"?"Kan niet":"Can't go")}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function App2({ lang, setLang, onLogout, dm, setDm, verified, setVerified, user }) {
   const t = TXT[lang];
   const posts = POSTS[lang]||POSTS.EN;
@@ -837,6 +983,13 @@ useEffect(()=>{
   const [offerTxt, setOfferTxt] = useState("");
   const [isUrgent, setIsUrgent] = useState(false);
   const [evType, setEvType] = useState(null);
+  const [evAmPm, setEvAmPm] = useState("AM");
+  const [evHour, setEvHour] = useState(null);
+  const [evCalOpen, setEvCalOpen] = useState(false);
+  const [evTimeOpen, setEvTimeOpen] = useState(false);
+  const [evMonth, setEvMonth] = useState(new Date().getMonth());
+  const [evYear, setEvYear] = useState(new Date().getFullYear());
+  const [evDay, setEvDay] = useState(null);
   const [evName, setEvName] = useState("");
   const [evDate, setEvDate] = useState("");
   const [evLoc, setEvLoc] = useState("");
@@ -860,6 +1013,10 @@ useEffect(()=>{
   const [postMenu, setPostMenu] = useState(null);
   const [helpRequests, setHelpRequests] = useState([]);
   const [helpNotifCount, setHelpNotifCount] = useState(0);
+  const [realEvents, setRealEvents] = useState([]);
+  const [attendingMap, setAttendingMap] = useState({});
+  const [eventAttendeesMap, setEventAttendeesMap] = useState({});
+  const [confirmModal, setConfirmModal] = useState(null);
 
   const bg = dm?"#181510":"#F7F4EF";
   const card = dm?"#232018":"#FFFFFF";
@@ -896,7 +1053,7 @@ useEffect(()=>{
   useEffect(()=>{
   if(displayHood){
     supabase.from('profiles').select('id', {count:'exact'}).eq('neighborhood', displayHood).then(({count})=>setNeighborCount(count||0));
-    supabase.from('neighborhood_populations').select('population').eq('neighborhood', displayHood).single().then(({data})=>{ if(data) setNeighborhoodPop(data.population); });
+    supabase.from('neighborhood_populations').select('population').eq('neighborhood', displayHood).then(({data})=>{ if(data&&data.length>0) setNeighborhoodPop(data[0].population); });
     supabase.from('announcements').select('*').eq('neighborhood', displayHood).order('created_at', {ascending:false}).then(({data})=>{ if(data) setAnnouncements(data); });
     getPosts(displayHood).then(({data})=>{
       if(data){
@@ -909,6 +1066,8 @@ useEffect(()=>{
             ini:(p.full_name||"U")[0].toUpperCase(), ver:false,
             time: (() => { const diff = Math.floor((Date.now() - new Date(p.created_at).getTime()) / 60000); if(diff < 1) return "just now"; if(diff < 60) return diff + " min"; if(diff < 1440) return Math.floor(diff/60) + " hr"; return Math.floor(diff/1440) + " days"; })(),
             cat:p.category||"", icon:CAT_ICONS[p.category]||"tool",
+            offer_category:p.offer_category||"",
+            offer_icon:CAT_ICONS[p.offer_category]||"",
             body:p.body, offer:p.offer, likes:0, replies:0,
             urgent:p.urgent, hood:p.neighborhood,
             avatar_url:p.avatar_url,
@@ -958,6 +1117,29 @@ useEffect(()=>{
       });
   }
 },[user]);
+
+useEffect(()=>{
+  if(displayHood){
+    supabase.from('events').select('*').eq('neighborhood',displayHood).eq('status','active').order('created_at',{ascending:false}).then(({data})=>{ if(data) setRealEvents(data); });
+  }
+},[profile?.neighborhood]);
+
+useEffect(()=>{
+  if(user?.id && realEvents.length>0){
+    supabase.from('event_attendees').select('*').in('event_id',realEvents.map(e=>e.id)).then(({data})=>{
+      if(data){
+        const aMap={},eaMap={};
+        data.forEach(a=>{
+          if(a.user_id===user.id) aMap[a.event_id]={status:a.status,id:a.id,attendee_confirmed:a.attendee_confirmed};
+          if(!eaMap[a.event_id]) eaMap[a.event_id]=[];
+          eaMap[a.event_id].push(a);
+        });
+        setAttendingMap(aMap); setEventAttendeesMap(eaMap);
+      }
+    });
+  }
+},[realEvents,user?.id]);
+
 useEffect(()=>{
   if(activeConv?.id){
     const otherId=activeConv.sender_id===user?.id?activeConv.receiver_id:activeConv.sender_id;
@@ -1000,16 +1182,61 @@ setTranslated(p=>({...p,[id]:{body:translatedBody, offer:translatedOffer}}));
   if(!needTxt.trim()){ alert(lang==="NL"?"Beschrijf je hulpvraag":"Please describe what you need"); return; }
   if(offerCat===null){ alert(lang==="NL"?"Selecteer een categorie voor je aanbod":"Please select a category for your support offer"); return; }
   if(!offerTxt.trim()){ alert(lang==="NL"?"Beschrijf wat je kunt aanbieden":"Please describe what you can offer"); return; }
-  await createPost(user?.id, displayName, displayHood, "help", t.helpCats[needCat]||"", needTxt, offerTxt, isUrgent);
+  await createPost(user?.id, displayName, displayHood, "help", t.helpCats[needCat]||"", needTxt, offerTxt, isUrgent, t.helpCats[offerCat]||"");
   setSuccess("help");
   setTimeout(()=>{ setSuccess(null); setTab("feed"); setNeedCat(null); setNeedTxt(""); setOfferCat(null); setOfferTxt(""); setIsUrgent(false); },2000);
 });
-  const sendDm = async() => { if(dmText.trim()){ await sendMessage(user?.id, dmPost?.user_id||dmPost?.id, displayName, dmPost?.user||"User", dmPost?.id, dmText, profile?.avatar_url); if(dmPost?.user_id && dmPost?.user_id !== user?.id){const {data:hd, error:he} = await supabase.from('help_requests').insert({ post_id:String(dmPost?.id), post_body:dmPost?.body, requester_id:dmPost?.user_id, requester_name:dmPost?.user, helper_id:user?.id, helper_name:displayName, status:'pending', offer_body:dmPost?.offer }); } setDmSent(true); setTimeout(()=>{ setDmSent(false); setDmPost(null); setDmText(""); },1800); } };
+const submitEv = () => requireVer(async()=>{
+  const evTypes = lang==="NL"
+    ? ["Stadslandbouw","Buurtschoonmaak","Thee bijeenkomst","Workshop","Feest","Overig"]
+    : ["Urban Farming","Neighborhood Clean","Tea Meetup","Workshop","Celebration","Other"];
+  if(evType===null){ alert(lang==="NL"?"Selecteer een type":"Please select an event type"); return; }
+  if(!evName.trim()){ alert("Please enter an event name"); return; }
+  if(!evDay){ alert("Please select a date"); return; }
+  if(!evHour){ alert("Please select a time"); return; }
+  if(!evLoc.trim()){ alert("Please enter a location"); return; }
+  const h = evAmPm==="PM"&&evHour!==12?evHour+12:evAmPm==="AM"&&evHour===12?0:evHour;
+  const eventDate = new Date(evYear,evMonth,evDay,h,0);
+  const {data,error} = await supabase.from('events').insert({ user_id:user?.id, organizer_name:displayName, organizer_avatar:profile?.avatar_url||null, neighborhood:displayHood, type:evTypes[evType], title:evName, location:evLoc, event_date:eventDate.toISOString(), status:'active' }).select().single();
+  if(!error&&data){
+    
+    setRealEvents(prev=>[{...data,time:"just now",hood:displayHood},...prev]);
+  }
+  setSuccess("ev");
+  setTimeout(()=>{ setSuccess(null); setTab("feed"); setEvType(null); setEvName(""); setEvDate(""); setEvLoc(""); setEvDay(null); setEvHour(null); },2000);
+});
+  const handleEventAttend = async(eventId, status) => {
+  const existing = attendingMap[eventId];
+  if(existing){
+    if(existing.status===status){
+      await supabase.from('event_attendees').delete().eq('id',existing.id);
+      setAttendingMap(prev=>{ const n={...prev}; delete n[eventId]; return n; });
+      setEventAttendeesMap(prev=>({...prev,[eventId]:(prev[eventId]||[]).filter(a=>a.user_id!==user.id)}));
+    } else {
+      await supabase.from('event_attendees').update({status}).eq('id',existing.id);
+      setAttendingMap(prev=>({...prev,[eventId]:{...prev[eventId],status}}));
+      setEventAttendeesMap(prev=>({...prev,[eventId]:(prev[eventId]||[]).map(a=>a.user_id===user.id?{...a,status}:a)}));
+    }
+  } else {
+    const {data, error} = await supabase.from('event_attendees').insert({ event_id:eventId, user_id:user.id, user_name:displayName, avatar_url:profile?.avatar_url||null, status }).select().single();
+    if(error?.code==='23505'){
+      const {data:ex} = await supabase.from('event_attendees').select('*').eq('event_id',eventId).eq('user_id',user.id).single();
+      if(ex){ setAttendingMap(prev=>({...prev,[eventId]:{status:ex.status,id:ex.id,attendee_confirmed:false}})); }
+    } else if(data){
+      setAttendingMap(prev=>({...prev,[eventId]:{status,id:data.id,attendee_confirmed:false}}));
+      setEventAttendeesMap(prev=>({...prev,[eventId]:[...(prev[eventId]||[]).filter(a=>a.user_id!==user.id),data]}));
+    }
+  }
+};
+const sendDm = async() => { if(dmText.trim()){ await sendMessage(user?.id, dmPost?.user_id||dmPost?.id, displayName, dmPost?.user||"User", dmPost?.id, dmText, profile?.avatar_url); if(dmPost?.user_id && dmPost?.user_id !== user?.id){const {data:hd, error:he} = await supabase.from('help_requests').insert({ post_id:String(dmPost?.id), post_body:dmPost?.body, requester_id:dmPost?.user_id, requester_name:dmPost?.user, helper_id:user?.id, helper_name:displayName, status:'pending', offer_body:dmPost?.offer }); } setDmSent(true); setTimeout(()=>{ setDmSent(false); setDmPost(null); setDmText(""); },1800); } };
 const userHood = profile?.neighborhood || user?.user_metadata?.neighborhood;
-const allPosts = [...realPosts, ...posts.filter(p=>p.hood===displayHood||p.hood==="All Neighborhood"||p.hood==="Hele Buurt")];   
+const eventsAsPosts = realEvents.map(e=>({...e, isEvent:true, user:e.organizer_name, ini:(e.organizer_name||'E')[0].toUpperCase(), avatar_url:e.organizer_avatar, time:(()=>{ const diff=Math.floor((Date.now()-new Date(e.created_at).getTime())/60000); if(diff<1) return "just now"; if(diff<60) return diff+" min"; if(diff<1440) return Math.floor(diff/60)+" hr"; return Math.floor(diff/1440)+" days"; })(), hood:e.neighborhood, type:e.type }));
+const allPosts = [...realPosts, ...eventsAsPosts, ...posts.filter(p=>p.hood===displayHood||p.hood==="All Neighborhood"||p.hood==="Hele Buurt")];   
 const filtPosts = allPosts.filter(p=>{
-  const typeMatch = filter==="all"||(filter==="help"&&p.type==="help")||(filter==="event"&&p.type==="event");
-  return typeMatch;
+  if(filter==="all") return true;
+  if(filter==="help") return p.type==="help" && !p.isEvent;
+  if(filter==="event") return p.isEvent || p.type==="event";
+  return true;
 });
 
   const NavBtn = ({ k, icon, label, badge }) => (
@@ -1066,7 +1293,13 @@ const filtPosts = allPosts.filter(p=>{
                 <Av ini={(n.from_user_name||"?")[0]} size={36} col={G} imgUrl={n.from_avatar_url}/>
                 <div style={{ flex:1 }}>
                   <span style={{ fontSize:13, color:ink, fontWeight:600 }}>{n.from_user_name}</span>
-                  <span style={{ fontSize:13, color:mid }}>{n.type==="likes"?" liked your post":" commented on your post"}</span>
+                  <span style={{ fontSize:13, color:mid }}>
+  {n.type==="likes"?" liked your post":
+   n.type==="event_confirm_organizer"?" — confirm attendance for your event":
+   n.type==="event_confirm_attendee"?" — did you attend this event?":
+   n.type==="event_cancelled"?" cancelled an event you were attending":
+   " commented on your post"}
+</span>
                   <div style={{ fontSize:11, color:mid, marginTop:2 }}>{n.post_body?.substring(0,40)}...</div>
                 </div>
               </div>
@@ -1093,9 +1326,19 @@ const filtPosts = allPosts.filter(p=>{
               </div>
             </div>
             <div style={{ display:"flex", gap:8, marginBottom:16, alignItems:"center", flexWrap:"wrap" }}>
-  {[["all",t.all],["help",t.helpF],["event",t.eventF]].map(([k,lbl])=>(
-    <button key={k} onClick={()=>setFilter(k)} style={{ padding:"6px 14px", borderRadius:20, border:"1.5px solid "+(filter===k?G:bdr), background:filter===k?G:"transparent", color:filter===k?"#fff":mid, fontSize:13, fontWeight:600, cursor:"pointer", transition:"all .2s" }}>{lbl}</button>
-  ))}
+  {[["all",t.all],["help",t.helpF]].map(([k,lbl])=>(
+  <button key={k} onClick={()=>setFilter(k)} style={{ padding:"6px 14px", borderRadius:20, border:"1.5px solid "+(filter==="event"||filter===k?filter===k?G:bdr:bdr), background:filter===k?G:"transparent", color:filter===k?"#fff":mid, fontSize:13, fontWeight:600, cursor:"pointer", transition:"all .2s" }}>{lbl}</button>
+))}
+<div onClick={()=>setFilter("event")} style={{ position:"relative", borderRadius:20, overflow:"hidden", cursor:"pointer" }}>
+  <div style={{ position:"absolute", inset:0, background:filter==="event"?G:"#EBF3E8" }}/>
+  <div style={{ position:"absolute", inset:0, background:"linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%)", animation:"shimmer 2.5s infinite" }}/>
+  <div style={{ position:"relative", zIndex:1, display:"flex", alignItems:"center", gap:6, padding:"7px 14px" }}>
+    <div style={{ width:7, height:7, borderRadius:"50%", background:filter==="event"?"#fff":"#3D6B35", animation:"evPulse 1.4s infinite" }}/>
+    <span style={{ fontSize:13, fontWeight:700, color:filter==="event"?"#fff":"#3D6B35", fontFamily:"DM Sans,sans-serif" }}>{t.eventF}</span>
+    {realEvents.length>0&&<span style={{ background:filter==="event"?"rgba(255,255,255,0.2)":"rgba(61,107,53,0.15)", borderRadius:20, padding:"1px 6px", fontSize:10, fontWeight:700, color:filter==="event"?"#fff":"#3D6B35" }}>{realEvents.length}</span>}
+  </div>
+</div>
+<style>{"@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}} @keyframes evPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}"}</style>
   {(()=>{
     const pct = neighborhoodPop>0 ? Math.max(1, Math.round((neighborCount/neighborhoodPop)*100)) : 1;
     const stages=[{pct:10,icon:"🌱",name:"Seedling"},{pct:25,icon:"🌿",name:"Sprout"},{pct:50,icon:"🌸",name:"Bloom"},{pct:75,icon:"🌾",name:"Harvest"},{pct:100,icon:"🏆",name:"Resilience Hub"}];
@@ -1153,10 +1396,13 @@ const filtPosts = allPosts.filter(p=>{
 </div>
 
             {filtPosts.map((p,i)=>{
-              const tc=TCAT[p.type]||TCAT.announce;
-              const ac = AVC[p.user?.charCodeAt(0)%AVC.length||0];
-              return (
-                <div key={p.id} style={{ background:card, border:"1px solid "+bdr, borderRadius:16, padding:16, marginBottom:12, boxShadow:"0 1px 6px rgba(0,0,0,.04)" }}>
+  if(p.isEvent){
+    return <EventFeedCard key={"ev-"+p.id} ev={p} userId={user?.id} attending={attendingMap[p.id]} attendees={eventAttendeesMap[p.id]||[]} onAttend={(status)=>handleEventAttend(p.id,status)} onCancel={(id)=>{ setRealEvents(prev=>prev.filter(e=>e.id!==id)); const newPts = Math.max(0,(profile?.points||0)-300); supabase.from('profiles').update({points:newPts}).eq('id',user?.id).then(()=>setProfile(prev=>({...prev,points:newPts}))); }} eventAttendeesMap={eventAttendeesMap} lang={lang}/>;
+  }
+  const tc=TCAT[p.type]||TCAT.announce;
+  const ac = AVC[p.user?.charCodeAt(0)%AVC.length||0];
+  return (
+    <div key={p.id} style={{ background:card, border:"1px solid "+bdr, borderRadius:16, padding:16, marginBottom:12, boxShadow:"0 1px 6px rgba(0,0,0,.04)" }}>
                   <div style={{ display:"flex", gap:10, marginBottom:10 }}>
                     <Av ini={p.ini} size={42} col={ac} ver={p.ver} imgUrl={p.avatar_url}/>
                     <div style={{ flex:1 }}>
@@ -1203,12 +1449,12 @@ const filtPosts = allPosts.filter(p=>{
       <Icon n="hands" size={13} color={PU}/>
       <span style={{ fontSize:11, fontWeight:700, color:PU, letterSpacing:.5 }}>{t.offerTitle.toUpperCase()}</span>
     </div>
-    {p.icon&&(
-      <div style={{ display:"flex", alignItems:"center", gap:4, background:PU+"22", padding:"3px 8px", borderRadius:20 }}>
-        <Icon n={p.icon} size={11} color={PU}/>
-        <span style={{ fontSize:11, fontWeight:700, color:PU }}>{p.cat}</span>
-      </div>
-    )}
+    {(p.offer_icon||p.icon)&&(
+  <div style={{ display:"flex", alignItems:"center", gap:4, background:PU+"22", padding:"3px 8px", borderRadius:20 }}>
+    <Icon n={p.offer_icon||p.icon} size={11} color={PU}/>
+    <span style={{ fontSize:11, fontWeight:700, color:PU }}>{p.offer_category||p.cat}</span>
+  </div>
+)}
   </div>
   <p style={{ margin:0, fontSize:13, color:dm?"#C4B0D8":PU, lineHeight:1.5 }}>{translated[p.id]?.offer||p.offer}</p>
 </div>
@@ -1338,6 +1584,12 @@ const filtPosts = allPosts.filter(p=>{
     const userPoints = profile?.points || 0;
     const isLocked = userPoints < 10000;
     const pct = Math.min(100, (userPoints / 10000) * 100);
+    const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    const today = new Date();
+    const minDate = new Date(today); minDate.setDate(today.getDate()+1);
+    const evTypes = lang==="NL"
+      ? [{n:"Stadslandbouw",i:"leaf"},{n:"Buurtschoonmaak",i:"sun"},{n:"Thee bijeenkomst",i:"msg"},{n:"Workshop",i:"star"},{n:"Feest",i:"bell"},{n:"Overig",i:"info"}]
+      : [{n:"Urban Farming",i:"leaf"},{n:"Neighborhood Clean",i:"sun"},{n:"Tea Meetup",i:"msg"},{n:"Workshop",i:"star"},{n:"Celebration",i:"bell"},{n:"Other",i:"info"}];
 
     if(isLocked) return (
       <div style={{ minHeight:"calc(100vh - 120px)", background:"#0f0e0c", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"32px 24px", gap:20 }}>
@@ -1345,36 +1597,28 @@ const filtPosts = allPosts.filter(p=>{
           <Icon n="lock" size={28} color="rgba(255,255,255,0.35)"/>
         </div>
         <div style={{ textAlign:"center" }}>
-          <div style={{ fontSize:20, fontWeight:700, color:"#fff", fontFamily:"Playfair Display,serif", marginBottom:8 }}>
-            {lang==="NL"?"Een mysterieuze plek":"A mysterious place"}
-          </div>
-          <div style={{ fontSize:13, color:"rgba(255,255,255,0.4)", lineHeight:1.7, maxWidth:260 }}>
-            {lang==="NL"
-              ?"Dit gebied opent voor actieve buren met 10.000 Co‑Points."
-              :"This area unlocks for active neighbors with 10,000 Co‑Points."}
-          </div>
+          <div style={{ fontSize:20, fontWeight:700, color:"#fff", fontFamily:"Playfair Display,serif", marginBottom:8 }}>{lang==="NL"?"Een mysterieuze plek":"A mysterious place"}</div>
+          <div style={{ fontSize:13, color:"rgba(255,255,255,0.4)", lineHeight:1.7, maxWidth:260 }}>{lang==="NL"?"Dit gebied opent voor actieve buren met 10.000 Co‑Points.":"This area unlocks for active neighbors with 10,000 Co‑Points."}</div>
         </div>
         <div style={{ width:"100%", maxWidth:280 }}>
           <div style={{ height:5, background:"rgba(255,255,255,0.07)", borderRadius:3, overflow:"hidden" }}>
             <div style={{ width:pct+"%", height:"100%", background:G, borderRadius:3, transition:"width .4s" }}/>
           </div>
           <div style={{ display:"flex", justifyContent:"space-between", marginTop:6, fontSize:11, color:"rgba(255,255,255,0.25)" }}>
-            <span>{userPoints.toLocaleString()} pts</span>
-            <span>10.000 pts</span>
+            <span>{userPoints.toLocaleString()} pts</span><span>10.000 pts</span>
           </div>
         </div>
-        <div style={{ fontSize:12, color:"rgba(255,255,255,0.2)" }}>
-          {lang==="NL"
-            ?`Nog ${(10000-userPoints).toLocaleString()} punten nodig`
-            :`${(10000-userPoints).toLocaleString()} more points to unlock`}
-        </div>
+        <div style={{ fontSize:12, color:"rgba(255,255,255,0.2)" }}>{lang==="NL"?`Nog ${(10000-userPoints).toLocaleString()} punten nodig`:`${(10000-userPoints).toLocaleString()} more points to unlock`}</div>
       </div>
     );
 
     return (
-      <div style={{ padding:"18px 16px" }}>
-        <h2 style={{ margin:"0 0 18px", fontSize:20, fontWeight:700, color:ink, fontFamily:"Playfair Display,serif" }}>{t.evTitle}</h2>
-        {success==="ev"?(
+      <div style={{ padding:"20px 16px 40px", background:bg }}>
+        <h2 style={{ margin:"0 0 2px", fontSize:22, fontWeight:700, color:ink, fontFamily:"Playfair Display,serif" }}>{t.evTitle}</h2>
+        <div style={{ fontSize:13, color:mid, marginBottom:2 }}>Bring your neighborhood together</div>
+        <div style={{ fontSize:12, color:mid, marginBottom:20 }}><span style={{ color:G, fontWeight:600 }}>+500 Co-Points</span> for creating · <span style={{ color:G, fontWeight:600 }}>+50 Co-Points</span> per attendee</div>
+
+        {success==="ev" ? (
           <div style={{ textAlign:"center", padding:"60px 0" }}>
             <div style={{ width:64, height:64, background:GL, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 14px" }}>
               <Icon n="check" size={28} color={G} sw={2.5}/>
@@ -1382,30 +1626,111 @@ const filtPosts = allPosts.filter(p=>{
             <div style={{ fontSize:18, fontWeight:700, color:ink }}>{t.okEv}</div>
             <div style={{ fontSize:14, color:mid, marginTop:6 }}>{t.okEvSub}</div>
           </div>
-        ):(
+        ) : (
           <div>
-            <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:18 }}>
-              {t.evTypes.map((ev,i)=>(
-                <button key={i} onClick={()=>setEvType(i)} style={{ display:"flex", alignItems:"center", gap:7, padding:"8px 14px", borderRadius:20, border:"1.5px solid "+(evType===i?G:bdr), background:evType===i?GL:card, cursor:"pointer", transition:"all .2s" }}>
-                  <Icon n={t.evIcons[i]} size={14} color={evType===i?G:mid}/><span style={{ fontSize:13, fontWeight:600, color:evType===i?G:ink }}>{ev}</span>
+            {/* Tip seçimi */}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginBottom:20 }}>
+              {evTypes.map((ev,i)=>(
+                <button key={i} onClick={()=>setEvType(i)} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:6, padding:"12px 8px", borderRadius:14, border:"1.5px solid "+(evType===i?G:bdr), background:evType===i?GL:card, cursor:"pointer" }}>
+                  <div style={{ width:36, height:36, borderRadius:10, background:evType===i?G:warm, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                    <Icon n={ev.i} size={16} color={evType===i?"#fff":mid}/>
+                  </div>
+                  <span style={{ fontSize:11, fontWeight:600, color:evType===i?G:mid, textAlign:"center", lineHeight:1.3 }}>{ev.n}</span>
                 </button>
               ))}
             </div>
-            {[["calendar",t.evName,evName,setEvName],["clock",t.evDate,evDate,setEvDate],["mapPin",t.evLoc,evLoc,setEvLoc]].map(([icon,ph,val,set],i)=>(
-              <div key={i} style={{ display:"flex", alignItems:"center", gap:10, background:card, border:"1.5px solid "+bdr, borderRadius:12, padding:"12px 14px", marginBottom:10 }}>
-                <Icon n={icon} size={16} color={mid}/><input value={val} onChange={e=>set(e.target.value)} placeholder={ph} style={{ flex:1, border:"none", outline:"none", background:"transparent", fontSize:14, color:ink, fontFamily:"DM Sans,sans-serif" }}/>
+
+            {/* Event name */}
+            <div style={{ marginBottom:14 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:mid, textTransform:"uppercase", letterSpacing:1, marginBottom:8 }}>Event name</div>
+              <div style={{ display:"flex", alignItems:"center", gap:10, background:card, border:"1.5px solid "+bdr, borderRadius:12, padding:"12px 14px" }}>
+                <Icon n="send" size={15} color={mid}/>
+                <input value={evName} onChange={e=>setEvName(e.target.value)} placeholder="Give your event a name..." style={{ flex:1, border:"none", outline:"none", background:"transparent", fontSize:14, color:ink, fontFamily:"DM Sans,sans-serif" }}/>
               </div>
-            ))}
-            {!verified&&(
-              <div style={{ background:GL, border:"1px solid "+G+"30", borderRadius:12, padding:"11px 14px", marginBottom:14, display:"flex", gap:10, alignItems:"center" }}>
-                <Icon n="shield" size={18} color={G}/>
-                <span style={{ flex:1, fontSize:13, fontWeight:600, color:G }}>{t.verReq}</span>
-                <button onClick={()=>setShowVer(true)} style={{ padding:"5px 12px", background:G, color:"#fff", border:"none", borderRadius:8, fontSize:12, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>{t.verNow}</button>
+            </div>
+
+            {/* Date & Time */}
+            <div style={{ marginBottom:14 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:mid, textTransform:"uppercase", letterSpacing:1, marginBottom:8 }}>Date & Time</div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                <button onClick={()=>{ setEvCalOpen(!evCalOpen); setEvTimeOpen(false); }} style={{ display:"flex", alignItems:"center", gap:8, background:card, border:"1.5px solid "+(evCalOpen?G:bdr), borderRadius:12, padding:"12px 14px", cursor:"pointer" }}>
+                  <Icon n="calendar" size={15} color={mid}/>
+                  <span style={{ fontSize:13, color:evDay?ink:mid, fontWeight:evDay?500:400 }}>{evDay ? MONTHS[evMonth].slice(0,3)+" "+evDay+", "+evYear : "Select date"}</span>
+                </button>
+                <button onClick={()=>{ setEvTimeOpen(!evTimeOpen); setEvCalOpen(false); }} style={{ display:"flex", alignItems:"center", gap:8, background:card, border:"1.5px solid "+(evTimeOpen?G:bdr), borderRadius:12, padding:"12px 14px", cursor:"pointer" }}>
+                  <Icon n="clock" size={15} color={mid}/>
+                  <span style={{ fontSize:13, color:evHour?ink:mid, fontWeight:evHour?500:400 }}>{evHour ? evHour+":00 "+evAmPm : "Select time"}</span>
+                </button>
               </div>
-            )}
-            <button onClick={submitEv} style={{ width:"100%", padding:"14px 0", background:G, color:"#fff", border:"none", borderRadius:14, fontSize:15, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
-              <Icon n="leaf" size={16} color="#fff"/> {t.evSubmit}
-            </button>
+
+              {/* Calendar dropdown */}
+              {evCalOpen&&(
+                <div style={{ background:card, border:"1.5px solid "+bdr, borderRadius:14, padding:14, marginTop:8 }}>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+                    <button onClick={()=>{ let m=evMonth-1,y=evYear; if(m<0){m=11;y--;} setEvMonth(m);setEvYear(y); }} style={{ background:"none", border:"none", cursor:"pointer", color:mid, fontSize:16, padding:"2px 6px" }}>‹</button>
+                    <span style={{ fontSize:13, fontWeight:700, color:ink }}>{MONTHS[evMonth]} {evYear}</span>
+                    <button onClick={()=>{ let m=evMonth+1,y=evYear; if(m>11){m=0;y++;} setEvMonth(m);setEvYear(y); }} style={{ background:"none", border:"none", cursor:"pointer", color:mid, fontSize:16, padding:"2px 6px" }}>›</button>
+                  </div>
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", marginBottom:6 }}>
+                    {["Mo","Tu","We","Th","Fr","Sa","Su"].map(d=><div key={d} style={{ textAlign:"center", fontSize:10, fontWeight:600, color:mid, padding:"4px 0" }}>{d}</div>)}
+                  </div>
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:2 }}>
+                    {Array.from({length:(new Date(evYear,evMonth,1).getDay()||7)-1}).map((_,i)=><div key={"e"+i}/>)}
+                    {Array.from({length:new Date(evYear,evMonth+1,0).getDate()}).map((_,i)=>{
+                      const d=i+1, thisDate=new Date(evYear,evMonth,d), disabled=thisDate<minDate, sel=evDay===d&&evMonth===new Date().getMonth()&&evYear===new Date().getFullYear();
+                      return <div key={d} onClick={()=>{ if(disabled)return; setEvDay(d); setEvCalOpen(false); }} style={{ textAlign:"center", padding:"6px 2px", fontSize:12, color:disabled?"#D3D1C7":sel?"#fff":ink, background:sel?G:"transparent", borderRadius:8, cursor:disabled?"default":"pointer", fontWeight:sel?700:400 }}>{d}</div>;
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Time dropdown */}
+              {evTimeOpen&&(
+                <div style={{ background:card, border:"1.5px solid "+bdr, borderRadius:14, padding:14, marginTop:8, display:"flex", flexDirection:"column", gap:12 }}>
+                  <div>
+                    <div style={{ fontSize:11, fontWeight:600, color:mid, marginBottom:6 }}>Hour</div>
+                    <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                      {[1,2,3,4,5,6,7,8,9,10,11,12].map(h=>(
+                        <button key={h} onClick={()=>setEvHour(h)} style={{ padding:"6px 11px", borderRadius:20, border:"1px solid "+(evHour===h?G:bdr), background:evHour===h?G:card, color:evHour===h?"#fff":mid, fontSize:12, fontWeight:600, cursor:"pointer" }}>{h}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize:11, fontWeight:600, color:mid, marginBottom:6 }}>AM / PM</div>
+                    <div style={{ display:"flex", gap:8 }}>
+                      {["AM","PM"].map(v=>(
+                        <button key={v} onClick={()=>setEvAmPm(v)} style={{ flex:1, padding:"8px 0", borderRadius:10, border:"1.5px solid "+(evAmPm===v?G:bdr), background:evAmPm===v?G:card, color:evAmPm===v?"#fff":mid, fontSize:13, fontWeight:700, cursor:"pointer" }}>{v}</button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Location */}
+            <div style={{ marginBottom:14 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:mid, textTransform:"uppercase", letterSpacing:1, marginBottom:8 }}>Location</div>
+              <div style={{ display:"flex", alignItems:"center", gap:10, background:card, border:"1.5px solid "+bdr, borderRadius:12, padding:"12px 14px" }}>
+                <Icon n="mapPin" size={15} color={mid}/>
+                <input value={evLoc} onChange={e=>setEvLoc(e.target.value)} placeholder="Where is it happening?" style={{ flex:1, border:"none", outline:"none", background:"transparent", fontSize:14, color:ink, fontFamily:"DM Sans,sans-serif" }}/>
+              </div>
+            </div>
+
+            {/* Surprise box */}
+            <div style={{ position:"relative", borderRadius:14, padding:16, marginBottom:16, overflow:"hidden", background:"#5C7A55", border:"1px solid rgba(120,200,100,0.25)" }}>
+              <EventStarsCanvas/>
+              <div style={{ position:"relative", zIndex:1 }}>
+                <div style={{ fontSize:9, fontWeight:700, letterSpacing:2, color:"rgba(255,255,255,0.45)", textTransform:"uppercase", marginBottom:8 }}>✦ CoHood</div>
+                <div style={{ fontSize:13, color:"rgba(255,255,255,0.7)", lineHeight:1.7 }}><strong style={{ color:"#fff" }}>The CoHood team might just surprise you.</strong> Events that bring the neighborhood together can unlock something unexpected — keep an eye out.</div>
+              </div>
+            </div>
+
+            {/* Create button */}
+            <div style={{ display:"flex", justifyContent:"center" }}>
+              <button onClick={submitEv} style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"10px 22px", background:warm, color:ink, border:"1px solid "+bdr, borderRadius:20, fontSize:14, fontWeight:600, cursor:"pointer", fontFamily:"DM Sans,sans-serif" }}>
+                <Icon n="leaf" size={14} color={ink}/> {t.evSubmit}
+              </button>
+            </div>
           </div>
         )}
       </div>
