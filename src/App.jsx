@@ -859,6 +859,7 @@ useEffect(()=>{
   const [helpTab, setHelpTab] = useState("given");
   const [postMenu, setPostMenu] = useState(null);
   const [helpRequests, setHelpRequests] = useState([]);
+  const [helpNotifCount, setHelpNotifCount] = useState(0);
 
   const bg = dm?"#181510":"#F7F4EF";
   const card = dm?"#232018":"#FFFFFF";
@@ -946,7 +947,15 @@ useEffect(()=>{
     supabase.from('help_requests').select('*')
       .or('requester_id.eq.'+user.id+',helper_id.eq.'+user.id)
       .order('created_at',{ascending:false})
-      .then(({data})=>{ if(data) setHelpRequests(data); });
+      .then(({data})=>{
+        if(data){
+          setHelpRequests(data);
+          setHelpNotifCount(data.filter(r=>
+  (r.requester_id===user.id && !r.read_by_requester) ||
+  (r.helper_id===user.id && !r.read_by_helper)
+).length);
+        }
+      });
   }
 },[user]);
 useEffect(()=>{
@@ -986,7 +995,15 @@ setTranslated(p=>({...p,[id]:{body:translatedBody, offer:translatedOffer}}));
   }
   setTranslating(p=>({...p,[id]:false}));
 };
-  const submitHelp = () => requireVer(async()=>{ await createPost(user?.id, displayName, displayHood, "help", t.helpCats[needCat]||"", needTxt, offerTxt, isUrgent); setSuccess("help"); setTimeout(()=>{ setSuccess(null); setTab("feed"); setNeedCat(null); setNeedTxt(""); setOfferCat(null); setOfferTxt(""); setIsUrgent(false); },2000); });  const submitEv = () => requireVer(()=>{ setSuccess("ev"); setTimeout(()=>{ setSuccess(null); setTab("feed"); setEvType(null); setEvName(""); setEvDate(""); setEvLoc(""); },2000); });
+  const submitHelp = () => requireVer(async()=>{
+  if(needCat===null){ alert(lang==="NL"?"Selecteer een categorie voor je hulpvraag":"Please select a category for your help request"); return; }
+  if(!needTxt.trim()){ alert(lang==="NL"?"Beschrijf je hulpvraag":"Please describe what you need"); return; }
+  if(offerCat===null){ alert(lang==="NL"?"Selecteer een categorie voor je aanbod":"Please select a category for your support offer"); return; }
+  if(!offerTxt.trim()){ alert(lang==="NL"?"Beschrijf wat je kunt aanbieden":"Please describe what you can offer"); return; }
+  await createPost(user?.id, displayName, displayHood, "help", t.helpCats[needCat]||"", needTxt, offerTxt, isUrgent);
+  setSuccess("help");
+  setTimeout(()=>{ setSuccess(null); setTab("feed"); setNeedCat(null); setNeedTxt(""); setOfferCat(null); setOfferTxt(""); setIsUrgent(false); },2000);
+});
   const sendDm = async() => { if(dmText.trim()){ await sendMessage(user?.id, dmPost?.user_id||dmPost?.id, displayName, dmPost?.user||"User", dmPost?.id, dmText, profile?.avatar_url); if(dmPost?.user_id && dmPost?.user_id !== user?.id){const {data:hd, error:he} = await supabase.from('help_requests').insert({ post_id:String(dmPost?.id), post_body:dmPost?.body, requester_id:dmPost?.user_id, requester_name:dmPost?.user, helper_id:user?.id, helper_name:displayName, status:'pending', offer_body:dmPost?.offer }); } setDmSent(true); setTimeout(()=>{ setDmSent(false); setDmPost(null); setDmText(""); },1800); } };
 const userHood = profile?.neighborhood || user?.user_metadata?.neighborhood;
 const allPosts = [...realPosts, ...posts.filter(p=>p.hood===displayHood||p.hood==="All Neighborhood"||p.hood==="Hele Buurt")];   
@@ -996,7 +1013,10 @@ const filtPosts = allPosts.filter(p=>{
 });
 
   const NavBtn = ({ k, icon, label, badge }) => (
-    <button onClick={()=>{ setTab(k); if(k==="messages"){ supabase.from("messages").update({read:true}).eq("receiver_id",user?.id).eq("read",false).then(()=>setUnreadCount(0)); } }} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:3, padding:"7px 0 8px", border:"none", background:"transparent", cursor:"pointer", color:tab===k?G:mid, position:"relative" }}>
+    <button onClick={()=>{ setTab(k); if(k==="messages"){ supabase.from("messages").update({read:true}).eq("receiver_id",user?.id).eq("read",false).then(()=>setUnreadCount(0)); } if(k==="profile"){
+  supabase.from('help_requests').update({read_by_requester:true}).eq('requester_id',user?.id).then();
+  supabase.from('help_requests').update({read_by_helper:true}).eq('helper_id',user?.id).then(()=>setHelpNotifCount(0));
+} }} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:3, padding:"7px 0 8px", border:"none", background:"transparent", cursor:"pointer", color:tab===k?G:mid, position:"relative" }}>
       <span style={{ position:"relative" }}>
         <Icon n={icon} size={20} color={tab===k?G:mid} sw={tab===k?2.2:1.6}/>
         {badge&&tab!=="messages"&&(
@@ -1178,11 +1198,20 @@ const filtPosts = allPosts.filter(p=>{
                   <p style={{ margin:"0 0 8px", fontSize:14, color:mid, lineHeight:1.6 }}>{translated[p.id]?.body||p.body}</p>
                   {p.offer&&(
                     <div style={{ background:dm?"rgba(90,58,122,.15)":PUL, border:"1px solid "+PU+"20", borderRadius:10, padding:"10px 12px", marginBottom:8 }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
-                        <Icon n="hands" size={13} color={PU}/><span style={{ fontSize:11, fontWeight:700, color:PU, letterSpacing:.5 }}>{t.offerTitle.toUpperCase()}</span>
-                      </div>
-                      <p style={{ margin:0, fontSize:13, color:dm?"#C4B0D8":PU, lineHeight:1.5 }}>{translated[p.id]?.offer||p.offer}</p>
-                    </div>
+  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
+    <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+      <Icon n="hands" size={13} color={PU}/>
+      <span style={{ fontSize:11, fontWeight:700, color:PU, letterSpacing:.5 }}>{t.offerTitle.toUpperCase()}</span>
+    </div>
+    {p.icon&&(
+      <div style={{ display:"flex", alignItems:"center", gap:4, background:PU+"22", padding:"3px 8px", borderRadius:20 }}>
+        <Icon n={p.icon} size={11} color={PU}/>
+        <span style={{ fontSize:11, fontWeight:700, color:PU }}>{p.cat}</span>
+      </div>
+    )}
+  </div>
+  <p style={{ margin:0, fontSize:13, color:dm?"#C4B0D8":PU, lineHeight:1.5 }}>{translated[p.id]?.offer||p.offer}</p>
+</div>
                   )}
                   {p.date&&(
                     <div style={{ display:"inline-flex", alignItems:"center", gap:6, background:GL, padding:"5px 12px", borderRadius:20, marginBottom:8 }}>
@@ -1271,9 +1300,7 @@ const filtPosts = allPosts.filter(p=>{
                     ))}
                   </div>
                   <textarea value={needTxt} onChange={e=>setNeedTxt(e.target.value)} placeholder={t.needPh} style={{ width:"100%", minHeight:80, padding:"10px 12px", borderRadius:10, border:"1.5px solid "+bdr, background:warm, color:ink, fontSize:13, fontFamily:"DM Sans,sans-serif", resize:"vertical", outline:"none", boxSizing:"border-box" }}/>
-                  <button onClick={()=>setIsUrgent(!isUrgent)} style={{ marginTop:10, display:"flex", alignItems:"center", gap:8, padding:"7px 14px", borderRadius:10, border:"1.5px solid "+(isUrgent?R:bdr), background:isUrgent?RL:warm, cursor:"pointer" }}>
-                    <Icon n="alert" size={15} color={isUrgent?R:mid}/><span style={{ fontSize:13, fontWeight:600, color:isUrgent?R:mid }}>{t.urgentLbl}</span>
-                  </button>
+                
                 </div>
                 <div style={{ background:card, border:"1px solid "+bdr, borderRadius:16, padding:16, marginBottom:16 }}>
                   <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
@@ -1602,7 +1629,7 @@ const filtPosts = allPosts.filter(p=>{
         <NavBtn k="events" icon="calendar" label={t.events}/>
         <NavBtn k="spots" icon="mapPin" label="Co-Spots"/>
         <NavBtn k="commons" icon="bag" label="Co-Commons"/>
-        <NavBtn k="profile" icon="user" label={t.profile}/>
+        <NavBtn k="profile" icon="user" label={t.profile} badge={helpNotifCount}/>
       </div>
 
       {activeConv&&(
