@@ -251,27 +251,66 @@ function InputField({ icon, ph, val, onChange, isPass }) {
   );
 }
 
-function VerifyModal({ t, dm, onClose, onVerified }) {
+function VerifyModal({ t, dm, onClose, onVerified, user, profile }) {
   const [step, setStep] = useState("intro");
-  const [idDone, setIdDone] = useState(false);
-  const [selDone, setSelDone] = useState(false);
   const [why, setWhy] = useState(false);
-  const bg = dm?"#1E1A14":"#fff";
+  const [idFile, setIdFile] = useState(null);
+  const [selfieFile, setSelfieFile] = useState(null);
+  const [idPreview, setIdPreview] = useState(null);
+  const [selfiePreview, setSelfiePreview] = useState(null);
+  const [phone, setPhone] = useState(profile?.phone||"");
+  const [loading, setLoading] = useState(false);
+
+  const bg = dm?"#232018":"#fff";
   const ink = dm?"#EDE7D9":"#2C2416";
   const mid = dm?"#9A8E7A":"#6B5E4E";
   const bdr = dm?"#33291E":"#E2D9CC";
   const warm = dm?"#2C2820":"#F0EBE1";
-  const submit = () => { setStep("pending"); setTimeout(()=>setStep("done"),2000); };
-  const finish = () => { onVerified(); onClose(); };
+
+  const handleFile = (file, type) => {
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = e => type==='id' ? setIdPreview(e.target.result) : setSelfiePreview(e.target.result);
+    reader.readAsDataURL(file);
+    type==='id' ? setIdFile(file) : setSelfieFile(file);
+  };
+
+  const submit = async() => {
+    if(!idFile||!selfieFile){ alert("Please upload both files"); return; }
+    setLoading(true);
+    try {
+      const uid = user?.id;
+      const idExt = idFile.name.split('.').pop();
+      const selfieExt = selfieFile.name.split('.').pop();
+      const idPath = `${uid}/id_${Date.now()}.${idExt}`;
+      const selfiePath = `${uid}/selfie_${Date.now()}.${selfieExt}`;
+      await supabase.storage.from('verifications').upload(idPath, idFile, {upsert:true});
+      await supabase.storage.from('verifications').upload(selfiePath, selfieFile, {upsert:true});
+      const {data:{publicUrl:idUrl}} = supabase.storage.from('verifications').getPublicUrl(idPath);
+      const {data:{publicUrl:selfieUrl}} = supabase.storage.from('verifications').getPublicUrl(selfiePath);
+      await supabase.from('profiles').update({
+        verification_status:'pending',
+        id_photo_url: idUrl,
+        selfie_url: selfieUrl,
+        phone: phone||null
+      }).eq('id', uid);
+      setStep("pending");
+    } catch(e) {
+      alert("Upload failed, please try again");
+    }
+    setLoading(false);
+  };
+
   return (
     <div style={{ position:"fixed", inset:0, zIndex:300, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"flex-end", justifyContent:"center", backdropFilter:"blur(4px)" }} onClick={onClose}>
       <div style={{ background:bg, borderRadius:"20px 20px 0 0", width:"100%", maxWidth:480, maxHeight:"90vh", overflowY:"auto", padding:"8px 20px 40px", fontFamily:"DM Sans,sans-serif" }} onClick={e=>e.stopPropagation()}>
-        <div style={{ width:36, height:4, background:bdr, borderRadius:2, margin:"14px auto 20px" }} />
-        {step==="intro" && (
+        <div style={{ width:36, height:4, background:bdr, borderRadius:2, margin:"14px auto 20px" }}/>
+
+        {step==="intro"&&(
           <div>
             <div style={{ display:"flex", gap:12, alignItems:"center", marginBottom:16 }}>
               <div style={{ width:48, height:48, background:GL, borderRadius:14, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                <Icon n="shield" size={24} color={G} />
+                <Icon n="shield" size={24} color={G}/>
               </div>
               <div>
                 <div style={{ fontSize:17, fontWeight:700, color:ink }}>{t.verTitle}</div>
@@ -280,18 +319,18 @@ function VerifyModal({ t, dm, onClose, onVerified }) {
             </div>
             <button onClick={()=>setWhy(!why)} style={{ width:"100%", padding:"11px 14px", background:warm, border:"1px solid "+bdr, borderRadius:12, display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer", marginBottom:4 }}>
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                <Icon n="info" size={15} color={G} />
+                <Icon n="info" size={15} color={G}/>
                 <span style={{ fontSize:13, fontWeight:600, color:ink }}>{t.verWhy}</span>
               </div>
-              <Icon n={why?"chevronDown":"chevronRight"} size={15} color={mid} />
+              <Icon n={why?"chevronDown":"chevronRight"} size={15} color={mid}/>
             </button>
-            {why && (
+            {why&&(
               <div style={{ background:GL, borderRadius:"0 0 12px 12px", padding:"12px 14px", marginBottom:12 }}>
                 <p style={{ margin:0, fontSize:13, color:G, lineHeight:1.6 }}>{t.verWhyTxt}</p>
               </div>
             )}
             <div style={{ display:"flex", flexDirection:"column", gap:12, margin:"16px 0 20px" }}>
-              {[[1,"card",t.verS1,t.verS1d],[2,"camera",t.verS2,t.verS2d],[3,"check",t.verS3,t.verS3d]].map(([num,icon,title,desc])=>(
+              {[[1,"shield",t.verS1,t.verS1d],[2,"camera",t.verS2,t.verS2d],[3,"check",t.verS3,t.verS3d]].map(([num,icon,title,desc])=>(
                 <div key={num} style={{ display:"flex", gap:12, alignItems:"flex-start" }}>
                   <div style={{ width:30, height:30, borderRadius:"50%", background:GL, border:"1.5px solid "+G+"40", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
                     <span style={{ fontSize:12, fontWeight:800, color:G }}>{num}</span>
@@ -304,49 +343,75 @@ function VerifyModal({ t, dm, onClose, onVerified }) {
               ))}
             </div>
             <button onClick={()=>setStep("upload")} style={{ width:"100%", padding:"14px 0", background:G, color:"#fff", border:"none", borderRadius:14, fontSize:15, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
-              <Icon n="shield" size={16} color="#fff" /> {t.verStart}
+              <Icon n="shield" size={16} color="#fff"/> {t.verStart}
             </button>
             <button onClick={onClose} style={{ width:"100%", padding:"12px 0", background:"transparent", border:"none", color:mid, fontSize:14, cursor:"pointer", marginTop:8 }}>{t.verSkip}</button>
           </div>
         )}
-        {step==="upload" && (
+
+        {step==="upload"&&(
           <div>
-            <div style={{ fontSize:17, fontWeight:700, color:ink, marginBottom:18 }}>{t.verTitle}</div>
-            {[{done:idDone,set:setIdDone,icon:"card",label:t.verUpId,desc:t.verS1d},{done:selDone,set:setSelDone,icon:"camera",label:t.verUpSelf,desc:t.verS2d}].map((item,i)=>(
-              <div key={i} onClick={()=>item.set(true)} style={{ border:"2px dashed "+(item.done?G:bdr), borderRadius:14, padding:"22px 16px", textAlign:"center", cursor:"pointer", marginBottom:12, background:item.done?GL:"transparent", transition:"all .2s" }}>
-                {item.done ? (
-                  <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
-                    <VerBadge size={20} /><span style={{ fontSize:14, fontWeight:700, color:G }}>{item.label} ok</span>
-                  </div>
-                ) : (
+            <div style={{ fontSize:17, fontWeight:700, color:ink, marginBottom:6 }}>{t.verTitle}</div>
+            <div style={{ fontSize:13, color:mid, marginBottom:16 }}>Upload your documents to verify your identity.</div>
+
+            {/* Phone */}
+            <div style={{ marginBottom:14 }}>
+              <div style={{ fontSize:12, fontWeight:700, color:mid, textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>Phone number (optional)</div>
+              <div style={{ display:"flex", alignItems:"center", gap:10, background:warm, border:"1.5px solid "+bdr, borderRadius:12, padding:"11px 14px" }}>
+                <Icon n="msg" size={15} color={mid}/>
+                <input value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+31 6 12345678" style={{ flex:1, border:"none", outline:"none", background:"transparent", fontSize:14, color:ink, fontFamily:"DM Sans,sans-serif" }}/>
+              </div>
+            </div>
+
+            {/* ID Upload */}
+            <label style={{ display:"block", marginBottom:10 }}>
+              <input type="file" accept="image/*" style={{ display:"none" }} onChange={e=>handleFile(e.target.files[0],'id')}/>
+              <div style={{ border:"2px dashed "+(idFile?G:bdr), borderRadius:14, padding:"20px 16px", textAlign:"center", cursor:"pointer", background:idFile?GL:"transparent", transition:"all .2s" }}>
+                {idPreview ? (
+                  <img src={idPreview} alt="" style={{ width:"100%", maxHeight:140, objectFit:"cover", borderRadius:8 }}/>
+                ):(
                   <div>
-                    <Icon n={item.icon} size={26} color="#A8997E" />
-                    <div style={{ fontSize:14, fontWeight:600, color:ink, marginTop:8 }}>{item.label}</div>
-                    <div style={{ fontSize:12, color:mid, marginTop:4 }}>{item.desc}</div>
+                    <Icon n="shield" size={26} color="#A8997E"/>
+                    <div style={{ fontSize:14, fontWeight:600, color:ink, marginTop:8 }}>{t.verUpId}</div>
+                    <div style={{ fontSize:12, color:mid, marginTop:4 }}>{t.verS1d}</div>
                   </div>
                 )}
               </div>
-            ))}
-            <button onClick={submit} disabled={!idDone||!selDone} style={{ width:"100%", padding:"14px 0", background:idDone&&selDone?G:"#ccc", color:"#fff", border:"none", borderRadius:14, fontSize:15, fontWeight:700, cursor:idDone&&selDone?"pointer":"not-allowed" }}>{t.verStart}</button>
+            </label>
+
+            {/* Selfie Upload */}
+            <label style={{ display:"block", marginBottom:20 }}>
+              <input type="file" accept="image/*" style={{ display:"none" }} onChange={e=>handleFile(e.target.files[0],'selfie')}/>
+              <div style={{ border:"2px dashed "+(selfieFile?G:bdr), borderRadius:14, padding:"20px 16px", textAlign:"center", cursor:"pointer", background:selfieFile?GL:"transparent", transition:"all .2s" }}>
+                {selfiePreview ? (
+                  <img src={selfiePreview} alt="" style={{ width:"100%", maxHeight:140, objectFit:"cover", borderRadius:8 }}/>
+                ):(
+                  <div>
+                    <Icon n="camera" size={26} color="#A8997E"/>
+                    <div style={{ fontSize:14, fontWeight:600, color:ink, marginTop:8 }}>{t.verUpSelf}</div>
+                    <div style={{ fontSize:12, color:mid, marginTop:4 }}>{t.verS2d}</div>
+                  </div>
+                )}
+              </div>
+            </label>
+
+            <button onClick={submit} disabled={loading||!idFile||!selfieFile} style={{ width:"100%", padding:"14px 0", background:idFile&&selfieFile?G:"#ccc", color:"#fff", border:"none", borderRadius:14, fontSize:15, fontWeight:700, cursor:idFile&&selfieFile?"pointer":"not-allowed", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
+              {loading ? <div style={{ width:20, height:20, border:"3px solid #fff", borderTopColor:"transparent", borderRadius:"50%", animation:"spin .8s linear infinite" }}/> : <><Icon n="shield" size={16} color="#fff"/> {t.verStart}</>}
+            </button>
           </div>
         )}
-        {step==="pending" && (
+
+        {step==="pending"&&(
           <div style={{ textAlign:"center", padding:"48px 0" }}>
             <div style={{ width:60, height:60, borderRadius:"50%", background:warm, border:"2px solid "+bdr, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 16px" }}>
-              <div style={{ width:24, height:24, border:"3px solid "+G, borderTopColor:"transparent", borderRadius:"50%", animation:"spin .8s linear infinite" }} />
+              <div style={{ width:24, height:24, border:"3px solid "+G, borderTopColor:"transparent", borderRadius:"50%", animation:"spin .8s linear infinite" }}/>
             </div>
             <div style={{ fontSize:17, fontWeight:700, color:ink }}>{t.verPend}</div>
             <div style={{ fontSize:13, color:mid, marginTop:8, lineHeight:1.6 }}>{t.verPendTxt}</div>
-          </div>
-        )}
-        {step==="done" && (
-          <div style={{ textAlign:"center", padding:"32px 0" }}>
-            <div style={{ width:72, height:72, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 16px" }}>
-              <VerBadge size={72} />
+            <div style={{ fontSize:12, color:mid, marginTop:12, background:warm, borderRadius:12, padding:"12px 16px" }}>
+              Your documents have been submitted. Our team will review and approve within 24 hours.
             </div>
-            <div style={{ fontSize:18, fontWeight:700, color:ink, marginBottom:6 }}>{t.verDone}</div>
-            <div style={{ fontSize:13, color:mid, marginBottom:24 }}>{t.verDoneTxt}</div>
-            <button onClick={finish} style={{ padding:"13px 32px", background:G, color:"#fff", border:"none", borderRadius:14, fontSize:15, fontWeight:700, cursor:"pointer" }}>{t.verBadge}</button>
+            <button onClick={onClose} style={{ marginTop:20, padding:"12px 24px", background:G, color:"#fff", border:"none", borderRadius:14, fontSize:14, fontWeight:700, cursor:"pointer" }}>Done</button>
           </div>
         )}
       </div>
@@ -1908,10 +1973,12 @@ const filtPosts = allPosts.filter(p=>{
               
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 16px", borderBottom:"1px solid "+bdr }}>
                 <div style={{ display:"flex", alignItems:"center", gap:10 }}><Icon n="shield" size={17} color={G}/><span style={{ fontSize:14, fontWeight:500, color:ink }}>{t.idVer}</span></div>
-                {verified
-                  ?<div style={{ display:"flex", alignItems:"center", gap:5 }}><VerBadge size={16}/><span style={{ fontSize:12, fontWeight:700, color:G }}>{t.verified}</span></div>
-                  :<button onClick={()=>setShowVer(true)} style={{ padding:"5px 12px", background:G, color:"#fff", border:"none", borderRadius:8, fontSize:12, fontWeight:700, cursor:"pointer" }}>{t.verNow}</button>
-                }
+                {verified||profile?.verification_status==='approved'
+  ?<div style={{ display:"flex", alignItems:"center", gap:5 }}><VerBadge size={16}/><span style={{ fontSize:12, fontWeight:700, color:G }}>{t.verified}</span></div>
+  :profile?.verification_status==='pending'
+  ?<span style={{ fontSize:12, color:"#BA7517", fontWeight:600 }}>⏳ Pending review</span>
+  :<button onClick={()=>setShowVer(true)} style={{ padding:"5px 12px", background:G, color:"#fff", border:"none", borderRadius:8, fontSize:12, fontWeight:700, cursor:"pointer" }}>{t.verNow}</button>
+}
               </div>
             
             </div>
@@ -2001,7 +2068,7 @@ const filtPosts = allPosts.filter(p=>{
 )}
 
       {showVer&&(
-        <VerifyModal t={t} dm={dm} onClose={()=>setShowVer(false)} onVerified={()=>{setVerified(true);setShowVer(false);}}/>
+        <VerifyModal t={t} dm={dm} onClose={()=>setShowVer(false)} onVerified={()=>{setVerified(true);setShowVer(false);}} user={user} profile={profile}/>
       )}
 
       <style>{"@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}} @keyframes spin{to{transform:rotate(360deg)}} button:active{transform:scale(.97)}"}</style>
