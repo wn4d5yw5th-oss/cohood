@@ -1197,7 +1197,12 @@ useEffect(()=>{
 },[convMessages]);
   const displayIni = displayName[0]?.toUpperCase()||"U";
 
-  const requireVer = (fn) => { if(verified) fn(); else setShowVer(true); };
+  const requireVer = (fn) => {
+  if(verified || profile?.verification_status==='approved') fn();
+  else if(profile?.verification_status==='pending'){
+    alert(lang==="NL"?"Je verificatie wordt beoordeeld. Even geduld.":"Your verification is pending review. Please wait.");
+  } else setShowVer(true);
+};
   const doTranslate = async(id,body,offer) => {
   setTranslating(p=>({...p,[id]:true}));
   const srcLang = lang==="NL"?"nl":"en";
@@ -1611,13 +1616,20 @@ const filtPosts = allPosts.filter(p=>{
                   </div>
                   <textarea value={offerTxt} onChange={e=>setOfferTxt(e.target.value)} placeholder={t.offerPh} style={{ width:"100%", minHeight:80, padding:"10px 12px", borderRadius:10, border:"1.5px solid "+bdr, background:warm, color:ink, fontSize:13, fontFamily:"DM Sans,sans-serif", resize:"vertical", outline:"none", boxSizing:"border-box" }}/>
                 </div>
-                {!verified&&(
-                  <div style={{ background:GL, border:"1px solid "+G+"30", borderRadius:12, padding:"11px 14px", marginBottom:14, display:"flex", gap:10, alignItems:"center" }}>
-                    <Icon n="shield" size={18} color={G}/>
-                    <span style={{ flex:1, fontSize:13, fontWeight:600, color:G }}>{t.verReq}</span>
-                    <button onClick={()=>setShowVer(true)} style={{ padding:"5px 12px", background:G, color:"#fff", border:"none", borderRadius:8, fontSize:12, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>{t.verNow}</button>
-                  </div>
-                )}
+                {!verified && profile?.verification_status !== 'approved' && (
+  profile?.verification_status === 'pending' ? (
+    <div style={{ background:"#FAEEDA", border:"1px solid #BA751730", borderRadius:12, padding:"11px 14px", marginBottom:14, display:"flex", gap:10, alignItems:"center" }}>
+      <Icon n="shield" size={18} color="#BA7517"/>
+      <span style={{ flex:1, fontSize:13, fontWeight:600, color:"#BA7517" }}>⏳ Your verification is pending review</span>
+    </div>
+  ) : (
+    <div style={{ background:GL, border:"1px solid "+G+"30", borderRadius:12, padding:"11px 14px", marginBottom:14, display:"flex", gap:10, alignItems:"center" }}>
+      <Icon n="shield" size={18} color={G}/>
+      <span style={{ flex:1, fontSize:13, fontWeight:600, color:G }}>{t.verReq}</span>
+      <button onClick={()=>setShowVer(true)} style={{ padding:"5px 12px", background:G, color:"#fff", border:"none", borderRadius:8, fontSize:12, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>{t.verNow}</button>
+    </div>
+  )
+)}
                 <button onClick={submitHelp} style={{ width:"100%", padding:"14px 0", background:G, color:"#fff", border:"none", borderRadius:14, fontSize:15, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
                   <Icon n="send" size={16} color="#fff"/> {t.submitLbl}
                 </button>
@@ -1888,9 +1900,13 @@ const filtPosts = allPosts.filter(p=>{
                     <Icon n="mapPin" size={13} color="rgba(255,255,255,.75)"/> {displayHood}, Amsterdam
                   </div>
                 </div>
-                {verified?(
+                {verified||profile?.verification_status==='approved'?(
                   <div style={{ background:"rgba(255,255,255,.15)", borderRadius:12, padding:"7px 12px", display:"flex", alignItems:"center", gap:5 }}>
                     <VerBadge size={16}/><span style={{ fontSize:12, fontWeight:700, color:"#fff" }}>{t.verified}</span>
+                  </div>
+                ):profile?.verification_status==='pending'?(
+                  <div style={{ background:"rgba(186,117,23,.3)", border:"1.5px solid rgba(186,117,23,.5)", borderRadius:12, padding:"7px 12px", display:"flex", alignItems:"center", gap:5 }}>
+                    <span style={{ fontSize:12, fontWeight:700, color:"#fff" }}>⏳ Pending</span>
                   </div>
                 ):(
                   <button onClick={()=>setShowVer(true)} style={{ background:"rgba(255,255,255,.2)", border:"1.5px solid rgba(255,255,255,.4)", borderRadius:12, padding:"7px 12px", cursor:"pointer", display:"flex", alignItems:"center", gap:5 }}>
