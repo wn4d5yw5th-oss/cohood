@@ -158,7 +158,7 @@ const TXT = {
     errPass:"Password must be at least 8 characters with uppercase, number and symbol",errPassMatch:"Passwords do not match",
     errHood:"Please select your neighborhood",
     offersList:["Translation","Cooking","Gardening","Transport","Repairs","Childcare","Other"],
-    referralTitle:"Refer a neighbor, earn 200 Co-Points",
+    referralTitle:"Refer neighbors, earn 200 Co-Points each",
     referralNote:"Points are awarded after your neighbor's ID verification.",
     referralCopy:"Copy",
     termsText:"I agree to the ",
@@ -229,7 +229,7 @@ const TXT = {
     errPass:"Wachtwoord moet minimaal 8 tekens, hoofdletter, cijfer en symbool bevatten",errPassMatch:"Wachtwoorden komen niet overeen",
     errHood:"Kies je buurt",
     offersList:["Vertaling","Koken","Tuinieren","Vervoer","Reparaties","Kinderopvang","Anders"],
-    referralTitle:"Verwijs een buur, verdien 200 Co-Points",
+    referralTitle:"Verwijs buren, verdien 200 Co-Points per persoon",
     referralNote:"Punten worden toegekend na ID-verificatie van je buur.",
     referralCopy:"Kopiëren",
     termsText:"Ik ga akkoord met de ",
@@ -1167,12 +1167,12 @@ useEffect(()=>{
     supabase.from("profiles").select("*").eq("id",user.id).single().then(({data, error})=>{
       if(data){
   setProfile(prev => {
-    const prevPoints = prev?.points || 0;
     const newPoints = data?.points || 0;
-    const getTier = (pts) => pts <= 500 ? 1 : pts <= 2500 ? 2 : pts <= 7500 ? 3 : pts <= 20000 ? 4 : pts <= 50000 ? 5 : pts <= 150000 ? 6 : 7;
-    const prevTier = getTier(prevPoints);
-    const newTier = getTier(newPoints);
-    if (newTier > prevTier && prevPoints > 0) setTierUpModal(newTier);
+const getTier = (pts) => pts <= 500 ? 1 : pts <= 2500 ? 2 : pts <= 7500 ? 3 : pts <= 20000 ? 4 : pts <= 50000 ? 5 : pts <= 150000 ? 6 : 7;
+const newTier = getTier(newPoints);
+const savedTier = parseInt(localStorage.getItem("userTier") || "0");
+if (newTier > savedTier && savedTier > 0) setTierUpModal(newTier);
+localStorage.setItem("userTier", newTier);
     return data;
   });
       } else {
