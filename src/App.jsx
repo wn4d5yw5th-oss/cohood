@@ -2089,7 +2089,7 @@ const filtPosts = allPosts.filter(p=>{
     {min:7501, max:20000, level:4, name:"Contributor", desc:"CORE MEMBER. Active problem solver and verified volunteer.", icon:"⭐"},
     {min:20001, max:50000, level:5, name:"Connector", desc:"Integration bridge. Expert in fostering diverse social bonds.", icon:"🔗"},
     {min:50001, max:150000, level:6, name:"Steward", desc:"Neighborhood Guardian. High-trust arbiter for local disputes.", icon:"🛡️"},
-    {min:150000, max:Infinity, level:7, name:"Urban Visionary", desc:"ZIRVE. Digital architect of urban resilience and policy advisor.", icon:"👑"},
+    {min:150000, max:Infinity, level:7, name:"Urban Visionary", desc:"PINNACLE. Digital architect of urban resilience and policy advisor.", icon:"👑"},
   ];
   const cur = levels.find(l=>pts>=l.min&&pts<=l.max)||levels[0];
   const next = levels[cur.level]||null;
