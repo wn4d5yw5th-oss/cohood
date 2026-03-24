@@ -5,6 +5,9 @@ import { createPost, getPosts } from './posts';
 import { sendMessage, getMessages } from './messages';
 import { toggleLike, getLikes, getUserLikes } from './likes';
 import { signUp, signIn, resetPassword } from './auth';
+import CoHoodIntro from './CoHoodIntro';
+
+
 
 const P = {
   home:"M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z M9 21V12h6v9",
@@ -90,7 +93,7 @@ const POSTS = { EN:[], NL:[] };
 
 const TXT = {
   EN:{
-    tagline:"Neighborhood solidarity platform",
+    tagline:"Neighborhood Solidarity Platform",
     feed:"Feed",share:"Share",events:"Events",messages:"Messages",profile:"Profile",
     login:"Sign In",register:"Sign Up",loginBtn:"Sign In",registerBtn:"Create Account",
     or:"or",emailPh:"Email address",passPh:"Password",confirmPh:"Confirm password",
@@ -428,6 +431,47 @@ const Wrap = ({ children }) => (
     </div>
   );
 
+  const LangPicker = ({ lang, setLang }) => {
+  const [langOpen, setLangOpen] = useState(false);
+  return (
+    <div style={{ position:"absolute", top:16, right:16, zIndex:10 }}>
+      <button onClick={()=>setLangOpen(!langOpen)} style={{ display:"flex", alignItems:"center", gap:6, background:"rgba(255,255,255,.8)", border:"1px solid #E2D9CC", borderRadius:20, padding:"5px 11px", cursor:"pointer", fontSize:12, color:"#6B5E4E", backdropFilter:"blur(4px)" }}>
+        <Icon n="globe" size={12} color="#6B5E4E"/> {lang}
+      </button>
+      {langOpen && (
+        <div style={{ position:"absolute", right:0, top:34, background:"#fff", border:"1px solid #E2D9CC", borderRadius:12, overflow:"hidden", boxShadow:"0 8px 24px rgba(0,0,0,.1)", minWidth:140, zIndex:20 }}>
+          {["EN","NL"].map(l=>(
+            <button key={l} onClick={()=>{setLang(l);setLangOpen(false);}} style={{ width:"100%", padding:"10px 14px", border:"none", background:lang===l?GL:"transparent", cursor:"pointer", textAlign:"left", fontSize:13, color:lang===l?G:"#2C2416", fontFamily:"DM Sans,sans-serif", fontWeight:lang===l?700:400 }}>
+              {l==="EN"?"EN - English":"NL - Nederlands"}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+  const Logo = ({ tagline }) => (
+  <div style={{ background:"linear-gradient(160deg,#F0EBE1,#E8E0D0)", height:"200px", padding:"0 32px", position:"relative", overflow:"hidden", display:"flex", alignItems:"center", justifyContent:"center" }}>
+    {[[160,-40,120,.06],[280,60,80,.04],[-20,40,60,.05]].map(([x,y,s,o],i)=>(
+      <div key={i} style={{ position:"absolute", left:x, top:y, width:s, height:s, borderRadius:"50%", background:"rgba(61,107,53,"+o+")" }}/>
+    ))}
+    <div style={{ position:"relative", display:"flex", flexDirection:"column", alignItems:"center", textAlign:"center", gap:6 }}>
+      <img src="/CoHoodLogo.png" alt="CoHood" style={{ width:"80%", maxWidth:"350px", height:"150px", objectFit:"contain" }}/>
+      <div style={{ color:"#6B5E4E", fontSize:15 }}>{tagline}</div>
+    </div>
+  </div>
+);
+
+  const TabSwitch = ({ active, onSwitch, loginLabel, registerLabel }) => (
+  <div style={{ display:"flex", background:"#F0EBE1", borderRadius:12, padding:4, marginBottom:20, border:"1px solid #E2D9CC" }}>
+    {[["login",loginLabel],["register",registerLabel]].map(([m,lbl])=>(
+      <button key={m} onClick={()=>onSwitch(m)} style={{ flex:1, padding:"10px 0", borderRadius:9, border:"none", cursor:"pointer", background:active===m?"#fff":"transparent", color:active===m?"#2C2416":"#6B5E4E", fontWeight:active===m?700:500, fontSize:14, fontFamily:"DM Sans,sans-serif", transition:"all .2s" }}>{lbl}</button>
+    ))}
+  </div>
+);
+
+
 function Auth({ onLogin, lang, setLang }) {
   const t = TXT[lang];
   const [screen, setScreen] = useState("login");
@@ -436,7 +480,6 @@ function Auth({ onLogin, lang, setLang }) {
   const [pass2, setPass2] = useState("");
   const [name, setName] = useState("");
   const [hood, setHood] = useState("");
-  const [langOpen, setLangOpen] = useState(false);
   const [code, setCode] = useState(["","","","","",""]);
   const [onbStep, setOnbStep] = useState(0);
   const [offers, setOffers] = useState([]);
@@ -487,52 +530,14 @@ function Auth({ onLogin, lang, setLang }) {
     await supabase.auth.signInWithOAuth({ provider:"google", options:{ redirectTo:"https://cohood.nl" } });
   };
 
-  
 
-  const LangPicker = () => (
-    <div style={{ position:"absolute", top:16, right:16, zIndex:10 }}>
-      <button onClick={()=>setLangOpen(!langOpen)} style={{ display:"flex", alignItems:"center", gap:6, background:"rgba(255,255,255,.8)", border:"1px solid #E2D9CC", borderRadius:20, padding:"5px 11px", cursor:"pointer", fontSize:12, color:"#6B5E4E", backdropFilter:"blur(4px)" }}>
-        <Icon n="globe" size={12} color="#6B5E4E"/> {lang}
-      </button>
-      {langOpen && (
-        <div style={{ position:"absolute", right:0, top:34, background:"#fff", border:"1px solid #E2D9CC", borderRadius:12, overflow:"hidden", boxShadow:"0 8px 24px rgba(0,0,0,.1)", minWidth:140, zIndex:20 }}>
-          {["EN","NL"].map(l=>(
-            <button key={l} onClick={()=>{setLang(l);setLangOpen(false);}} style={{ width:"100%", padding:"10px 14px", border:"none", background:lang===l?GL:"transparent", cursor:"pointer", textAlign:"left", fontSize:13, color:lang===l?G:"#2C2416", fontFamily:"DM Sans,sans-serif", fontWeight:lang===l?700:400 }}>
-              {l==="EN"?"EN - English":"NL - Nederlands"}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
-  const Logo = () => (
-    <div style={{ background:"linear-gradient(160deg,#F0EBE1,#E8E0D0)", padding:"48px 32px 32px", position:"relative", overflow:"hidden" }}>
-      {[[160,-40,120,.06],[280,60,80,.04],[-20,40,60,.05]].map(([x,y,s,o],i)=>(
-        <div key={i} style={{ position:"absolute", left:x, top:y, width:s, height:s, borderRadius:"50%", background:"rgba(61,107,53,"+o+")" }}/>
-      ))}
-      <div style={{ width:52, height:52, background:G, borderRadius:15, display:"flex", alignItems:"center", justifyContent:"center", marginBottom:16, boxShadow:"0 8px 24px rgba(61,107,53,.25)" }}>
-        <Icon n="users" size={24} color="#fff" sw={1.6}/>
-      </div>
-      <div style={{ fontFamily:"Playfair Display,serif", fontSize:28, fontWeight:700, color:"#2C2416", letterSpacing:-.5 }}>CoHood</div>
-      <div style={{ color:"#6B5E4E", fontSize:13, marginTop:4 }}>{t.tagline}</div>
-    </div>
-  );
-
-  const TabSwitch = ({ active }) => (
-    <div style={{ display:"flex", background:"#F0EBE1", borderRadius:12, padding:4, marginBottom:20, border:"1px solid #E2D9CC" }}>
-      {[["login",t.login],["register",t.register]].map(([m,lbl])=>(
-        <button key={m} onClick={()=>setScreen(m)} style={{ flex:1, padding:"10px 0", borderRadius:9, border:"none", cursor:"pointer", background:active===m?"#fff":"transparent", color:active===m?"#2C2416":"#6B5E4E", fontWeight:active===m?700:500, fontSize:14, fontFamily:"DM Sans,sans-serif", transition:"all .2s" }}>{lbl}</button>
-      ))}
-    </div>
-  );
 
   if (screen==="login") return (
     <Wrap>
-      <LangPicker/>
-      <Logo/>
+      <LangPicker lang={lang} setLang={setLang}/>
+      <Logo tagline={t.tagline}/>
       <div style={{ flex:1, padding:"24px 24px 40px" }}>
-        <TabSwitch active="login"/>
+        <TabSwitch active="login" onSwitch={setScreen} loginLabel={t.login} registerLabel={t.register}/>
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           <InputField icon="mail" ph={t.emailPh} val={email} onChange={e=>setEmail(e.target.value)}/>
           <InputField icon="lock" ph={t.passPh} val={pass} onChange={e=>setPass(e.target.value)} isPass/>
@@ -559,10 +564,10 @@ function Auth({ onLogin, lang, setLang }) {
 
   if (screen==="register") return (
     <Wrap>
-      <LangPicker/>
-      <Logo/>
+      <LangPicker lang={lang} setLang={setLang}/>
+      <Logo tagline={t.tagline}/>
       <div style={{ flex:1, padding:"24px 24px 40px" }}>
-        <TabSwitch active="register"/>
+        <TabSwitch active="register" onSwitch={setScreen} loginLabel={t.login} registerLabel={t.register}/>
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           <InputField icon="user" ph={t.namePh} val={name} onChange={e=>setName(e.target.value)}/>
           <InputField icon="mail" ph={t.emailPh} val={email} onChange={e=>setEmail(e.target.value)}/>
@@ -1313,11 +1318,7 @@ const filtPosts = allPosts.filter(p=>{
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet"/>
       <div style={{ background:dm?"#1A1510":"#fff", borderBottom:"1px solid "+bdr, padding:"13px 18px", display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:50 }}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <div style={{ width:32, height:32, background:G, borderRadius:9, display:"flex", alignItems:"center", justifyContent:"center" }}>
-            <Icon n="users" size={17} color="#fff"/>
-          </div>
-          <span style={{ fontFamily:"Playfair Display,serif", fontSize:17, fontWeight:700, color:ink, letterSpacing:-.3 }}>CoHood</span>
-        </div>
+        <img src="/CoHoodLogo.png" alt="CoHood" style={{ height:30, width:"auto", objectFit:"contain" }}/> </div>
         <div style={{ display:"flex", alignItems:"center", gap:6 }}>
           {verified&&(
             <div style={{ display:"flex", alignItems:"center", gap:5, background:GL, padding:"3px 10px", borderRadius:20 }}>
@@ -2125,7 +2126,7 @@ function EditProfileModal({ user, profile, onClose, onSave, lang }) {
 }
 
 export default function Root() {
-  const [authed, setAuthed] = useState(false);
+  const [authed, setAuthed] = useState(false); const [showIntro, setShowIntro] = useState(true);
   const [user, setUser] = useState(null);
   const [lang, setLang] = useState("EN");
   const [dm, setDm] = useState(false);
@@ -2143,7 +2144,10 @@ export default function Root() {
   },[]);
 
   const handleLogout = async() => { await supabase.auth.signOut(); setAuthed(false); setUser(null); };
-
+  
+ if(showIntro) {
+  window.__cohoodFinish = () => setShowIntro(false);
+  return <CoHoodIntro onFinish={()=>setShowIntro(false)}/>; }
   if(!authed) return <Auth onLogin={(u)=>{ setUser(u); setAuthed(true); }} lang={lang} setLang={setLang}/>;
   return <App2 lang={lang} setLang={setLang} onLogout={handleLogout} dm={dm} setDm={setDm} verified={verified} setVerified={setVerified} user={user}/>;
 }
