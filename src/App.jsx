@@ -442,6 +442,9 @@ const Wrap = ({ children }) => (
     <div style={{ minHeight:"100vh", background:"#F7F4EF", fontFamily:"DM Sans,sans-serif", width:"100%", maxWidth:480, margin:"0 auto", display:"flex", flexDirection:"column", position:"relative" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet"/>
       {children}
+      <div style={{ textAlign:"center", padding:"24px 0 8px", fontSize:11, color:"#A8997E", letterSpacing:1 }}>
+  © 2026 CoHood · Amsterdam · All rights reserved
+</div>
     </div>
   );
 
@@ -600,17 +603,20 @@ if (!hasUpper || !hasNumber || !hasSymbol) {
           <InputField icon="lock" ph={t.passPh} val={pass} onChange={e=>setPass(e.target.value)} isPass/>
           <InputField icon="lock" ph={t.confirmPh} val={pass2} onChange={e=>setPass2(e.target.value)} isPass/>
           <InputField icon="users" ph="Referral code (optional)" val={referralCode} onChange={e=>setReferralCode(e.target.value.toUpperCase())}/>
-          <div style={{ display:"flex", alignItems:"center", gap:10, padding:"4px 0" }}>
+         
+          <select value={hood} onChange={e=>setHood(e.target.value)} style={{ padding:"12px 14px", background:"#F0EBE1", border:"1.5px solid #E2D9CC", borderRadius:12, fontSize:14, color:hood?"#2C2416":"#A8997E", fontFamily:"DM Sans,sans-serif", outline:"none", cursor:"pointer" }}>
+            <option value="" disabled>{t.hoodPh}</option>
+            {AMSTERDAM_HOODS.map(h=><option key={h} value={h}>{h}</option>)}
+          </select>
+
+ <div style={{ display:"flex", alignItems:"center", gap:10, padding:"4px 0" }}>
   <input type="checkbox" id="terms" checked={termsAccepted} onChange={e=>setTermsAccepted(e.target.checked)} style={{ width:18, height:18, cursor:"pointer", accentColor:G }}/>
   <label htmlFor="terms" style={{ fontSize:13, color:"#6B5E4E", fontFamily:"DM Sans,sans-serif" }}>
     {t.termsText}
     <button onClick={()=>setShowTerms(true)} style={{ background:"none", border:"none", color:G, fontWeight:700, cursor:"pointer", fontSize:13, fontFamily:"DM Sans,sans-serif", padding:0 }}>{t.termsLink}</button>
   </label>
 </div>
-          <select value={hood} onChange={e=>setHood(e.target.value)} style={{ padding:"12px 14px", background:"#F0EBE1", border:"1.5px solid #E2D9CC", borderRadius:12, fontSize:14, color:hood?"#2C2416":"#A8997E", fontFamily:"DM Sans,sans-serif", outline:"none", cursor:"pointer" }}>
-            <option value="" disabled>{t.hoodPh}</option>
-            {AMSTERDAM_HOODS.map(h=><option key={h} value={h}>{h}</option>)}
-          </select>
+
         </div>
         <div style={{ marginTop:12, padding:"12px 14px", background:GL, borderRadius:12, display:"flex", gap:8 }}>
           <Icon n="mail" size={16} color={G}/>
@@ -2186,13 +2192,31 @@ const filtPosts = allPosts.filter(p=>{
             <button onClick={onLogout} style={{ width:"100%", padding:"13px 0", background:"transparent", color:R, border:"1.5px solid "+R+"30", borderRadius:14, fontSize:14, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
               <Icon n="back" size={16} color={R}/> {t.logout}
             </button>
+          
+<div style={{ height:10 }}/>
+
+          <div style={{ background:card, border:"1px solid "+bdr, borderRadius:16, padding:"14px 16px", marginBottom:12, display:"flex", alignItems:"center", gap:12 }}>
+  <div style={{ width:40, height:40, borderRadius:12, background:GL, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+    <Icon n="mail" size={18} color={G}/>
+  </div>
+  <div style={{ flex:1 }}>
+    <div style={{ fontSize:13, fontWeight:700, color:ink, marginBottom:2 }}>We're listening</div>
+    <div style={{ fontSize:12, color:mid }}>Share your feedback or suggestions.</div>
+  </div>
+  <button onClick={()=>{ window.location.href="mailto:info@cohood.nl"; }} style={{ background:G, color:"#fff", border:"none", borderRadius:10, padding:"8px 14px", fontSize:12, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
+    Contact
+  </button>
+</div>
+          
           </div>
       
         )}
       </div>
 
+
+
       <div style={{ textAlign:"center", padding:"24px 0 8px", fontSize:11, color:mid, letterSpacing:1 }}>
-  © 2026 CoHood · Amsterdam
+  © 2026 CoHood · Amsterdam · All rights reserved
 </div>
 
       {tab==="admin" && profile?.role==="admin" &&(
