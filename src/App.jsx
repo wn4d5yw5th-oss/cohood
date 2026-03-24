@@ -6,6 +6,7 @@ import { sendMessage, getMessages } from './messages';
 import { toggleLike, getLikes, getUserLikes } from './likes';
 import { signUp, signIn, resetPassword } from './auth';
 import CoHoodIntro from './CoHoodIntro';
+import CoHoodOnboarding from './CoHoodOnboarding';
 
 
 
@@ -156,6 +157,9 @@ const TXT = {
     errPass:"Password must be at least 6 characters",errPassMatch:"Passwords do not match",
     errHood:"Please select your neighborhood",
     offersList:["Translation","Cooking","Gardening","Transport","Repairs","Childcare","Other"],
+    referralTitle:"Refer a neighbor, earn 200 Co-Points",
+    referralNote:"Points are awarded after your neighbor's ID verification.",
+    referralCopy:"Copy",
   },
   NL:{
     tagline:"Platform voor buurtsolidariteit",
@@ -221,6 +225,9 @@ const TXT = {
     errPass:"Wachtwoord moet minimaal 6 tekens zijn",errPassMatch:"Wachtwoorden komen niet overeen",
     errHood:"Kies je buurt",
     offersList:["Vertaling","Koken","Tuinieren","Vervoer","Reparaties","Kinderopvang","Anders"],
+    referralTitle:"Verwijs een buur, verdien 200 Co-Points",
+    referralNote:"Punten worden toegekend na ID-verificatie van je buur.",
+    referralCopy:"Kopiëren",
   },
 };
 
@@ -487,6 +494,7 @@ function Auth({ onLogin, lang, setLang }) {
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [referralCode, setReferralCode] = useState("");
 
   const onbSlides = [
     { icon:"users", bg:GL, color:G, title:t.welcomeTitle, desc:t.welcomeDesc },
@@ -511,7 +519,7 @@ function Auth({ onLogin, lang, setLang }) {
     if (pass!==pass2) { alert(t.errPassMatch); return; }
     if (!hood) { alert(t.errHood); return; }
     setLoading(true);
-    const { error } = await signUp(email, pass, name, hood);
+    const { error } = await signUp(email, pass, name, hood, referralCode.trim());
     setLoading(false);
     if (error) { alert(error.message); return; }
     setScreen("verify-email");
@@ -573,6 +581,7 @@ function Auth({ onLogin, lang, setLang }) {
           <InputField icon="mail" ph={t.emailPh} val={email} onChange={e=>setEmail(e.target.value)}/>
           <InputField icon="lock" ph={t.passPh} val={pass} onChange={e=>setPass(e.target.value)} isPass/>
           <InputField icon="lock" ph={t.confirmPh} val={pass2} onChange={e=>setPass2(e.target.value)} isPass/>
+          <InputField icon="users" ph="Referral code (optional)" val={referralCode} onChange={e=>setReferralCode(e.target.value.toUpperCase())}/>
           <select value={hood} onChange={e=>setHood(e.target.value)} style={{ padding:"12px 14px", background:"#F0EBE1", border:"1.5px solid #E2D9CC", borderRadius:12, fontSize:14, color:hood?"#2C2416":"#A8997E", fontFamily:"DM Sans,sans-serif", outline:"none", cursor:"pointer" }}>
             <option value="" disabled>{t.hoodPh}</option>
             {AMSTERDAM_HOODS.map(h=><option key={h} value={h}>{h}</option>)}
@@ -1101,38 +1110,51 @@ useEffect(()=>{
 
   const displayName = profile?.full_name||user?.user_metadata?.full_name||"User";
   const displayHood = profile?.neighborhood||user?.user_metadata?.neighborhood||"Amsterdam";
-  useEffect(()=>{
+  const fetchPosts = () => {
+  if(!displayHood) return;
+  getPosts(displayHood).then(({data})=>{
+    if(data){
+      const userIds = [...new Set(data.map(p=>p.user_id).filter(Boolean))];
+      supabase.from("profiles").select("id,points").in("id",userIds).then(({data:profiles})=>{
+        const ptsMap = {};
+        if(profiles) profiles.forEach(pr=>ptsMap[pr.id]=pr.points||0);
+        setRealPosts(data.map(p=>({
+          id:p.id, user_id:p.user_id, type:p.type||"help", user:p.full_name||"User",
+          ini:(p.full_name||"U")[0].toUpperCase(), ver:false,
+          time: (() => { const diff = Math.floor((Date.now() - new Date(p.created_at).getTime()) / 60000); if(diff < 1) return "just now"; if(diff < 60) return diff + " min"; if(diff < 1440) return Math.floor(diff/60) + " hr"; return Math.floor(diff/1440) + " days"; })(),
+          cat:p.category||"", icon:CAT_ICONS[p.category]||"tool",
+          offer_category:p.offer_category||"",
+          offer_icon:CAT_ICONS[p.offer_category]||"",
+          body:p.body, offer:p.offer, likes:0, replies:0,
+          urgent:p.urgent, hood:p.neighborhood,
+          avatar_url:p.avatar_url,
+          user_points: ptsMap[p.user_id] ?? p.user_points ?? 0
+        })));
+      });
+      data.forEach(p=>{
+        getLikes(p.id).then(count=>{ setLikeCounts(prev=>({...prev,[p.id]:count})); });
+        supabase.from("comments").select("*").eq("post_id",String(p.id)).order("created_at").then(({data:c})=>{
+          if(c&&c.length) setCmtList(prev=>({...prev,[p.id]:c.map(x=>({txt:x.content,name:x.full_name,ini:x.full_name?x.full_name[0]:"?",col:G,imgUrl:x.avatar_url}))}));
+        });
+      });
+    }
+  });
+};
+
+useEffect(()=>{
   if(displayHood){
     supabase.from('profiles').select('id', {count:'exact'}).eq('neighborhood', displayHood).then(({count})=>setNeighborCount(count||0));
     supabase.from('neighborhood_populations').select('population').eq('neighborhood', displayHood).then(({data})=>{ if(data&&data.length>0) setNeighborhoodPop(data[0].population); });
     supabase.from('announcements').select('*').eq('neighborhood', displayHood).order('created_at', {ascending:false}).then(({data})=>{ if(data) setAnnouncements(data); });
-    getPosts(displayHood).then(({data})=>{
-      if(data){
-        const userIds = [...new Set(data.map(p=>p.user_id).filter(Boolean))];
-        supabase.from("profiles").select("id,points").in("id",userIds).then(({data:profiles})=>{
-          const ptsMap = {};
-          if(profiles) profiles.forEach(pr=>ptsMap[pr.id]=pr.points||0);
-          setRealPosts(data.map(p=>({
-            id:p.id, user_id:p.user_id, type:p.type||"help", user:p.full_name||"User",
-            ini:(p.full_name||"U")[0].toUpperCase(), ver:false,
-            time: (() => { const diff = Math.floor((Date.now() - new Date(p.created_at).getTime()) / 60000); if(diff < 1) return "just now"; if(diff < 60) return diff + " min"; if(diff < 1440) return Math.floor(diff/60) + " hr"; return Math.floor(diff/1440) + " days"; })(),
-            cat:p.category||"", icon:CAT_ICONS[p.category]||"tool",
-            offer_category:p.offer_category||"",
-            offer_icon:CAT_ICONS[p.offer_category]||"",
-            body:p.body, offer:p.offer, likes:0, replies:0,
-            urgent:p.urgent, hood:p.neighborhood,
-            avatar_url:p.avatar_url,
-            user_points: ptsMap[p.user_id] ?? p.user_points ?? 0
-          })));
-        });
-        data.forEach(p=>{
-          getLikes(p.id).then(count=>{ setLikeCounts(prev=>({...prev,[p.id]:count})); });
-          supabase.from("comments").select("*").eq("post_id",String(p.id)).order("created_at").then(({data:c})=>{
-            if(c&&c.length) setCmtList(prev=>({...prev,[p.id]:c.map(x=>({txt:x.content,name:x.full_name,ini:x.full_name?x.full_name[0]:"?",col:G,imgUrl:x.avatar_url}))}));
-          });
-        });
-      }
-    });
+    fetchPosts();
+
+    const channel = supabase.channel('posts-realtime-'+displayHood)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts', filter: 'neighborhood=eq.'+displayHood }, ()=>{
+        fetchPosts();
+      })
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
   }
 },[profile?.neighborhood]);
 useEffect(()=>{
@@ -1161,8 +1183,9 @@ useEffect(()=>{
         if(data){
           setHelpRequests(data);
           setHelpNotifCount(data.filter(r=>
-  (r.requester_id===user.id && !r.read_by_requester) ||
-  (r.helper_id===user.id && !r.read_by_helper)
+  new Date(r.show_after) <= new Date() &&
+  ((r.requester_id===user.id && !r.read_by_requester) ||
+  (r.helper_id===user.id && !r.read_by_helper))
 ).length);
         }
       });
@@ -1285,7 +1308,7 @@ const submitEv = () => requireVer(async()=>{
     }
   }
 };
-const sendDm = async() => { if(dmText.trim()){ await sendMessage(user?.id, dmPost?.user_id||dmPost?.id, displayName, dmPost?.user||"User", dmPost?.id, dmText, profile?.avatar_url); if(dmPost?.user_id && dmPost?.user_id !== user?.id){const {data:hd, error:he} = await supabase.from('help_requests').insert({ post_id:String(dmPost?.id), post_body:dmPost?.body, requester_id:dmPost?.user_id, requester_name:dmPost?.user, helper_id:user?.id, helper_name:displayName, status:'pending', offer_body:dmPost?.offer }); } setDmSent(true); setTimeout(()=>{ setDmSent(false); setDmPost(null); setDmText(""); },1800); } };
+const sendDm = async() => { if(dmText.trim()){ await sendMessage(user?.id, dmPost?.user_id||dmPost?.id, displayName, dmPost?.user||"User", dmPost?.id, dmText, profile?.avatar_url); if(dmPost?.user_id && dmPost?.user_id !== user?.id){const {data:hd, error:he} = await supabase.from('help_requests').insert({ post_id:String(dmPost?.id), post_body:dmPost?.body, requester_id:dmPost?.user_id, requester_name:dmPost?.user, helper_id:user?.id, helper_name:displayName, status:'pending', offer_body:dmPost?.offer, show_after: new Date(Date.now() + 12*60*60*1000).toISOString() }); } setDmSent(true); setTimeout(()=>{ setDmSent(false); setDmPost(null); setDmText(""); },1800); } };
 const userHood = profile?.neighborhood || user?.user_metadata?.neighborhood;
 const eventsAsPosts = realEvents.map(e=>({...e, isEvent:true, user:e.organizer_name, ini:(e.organizer_name||'E')[0].toUpperCase(), avatar_url:e.organizer_avatar, time:(()=>{ const diff=Math.floor((Date.now()-new Date(e.created_at).getTime())/60000); if(diff<1) return "just now"; if(diff<60) return diff+" min"; if(diff<1440) return Math.floor(diff/60)+" hr"; return Math.floor(diff/1440)+" days"; })(), hood:e.neighborhood, type:e.type }));
 const allPosts = [...realPosts, ...eventsAsPosts, ...posts.filter(p=>p.hood===displayHood||p.hood==="All Neighborhood"||p.hood==="Hele Buurt")].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));   
@@ -1536,7 +1559,7 @@ const filtPosts = allPosts.filter(p=>{
                     </button>
                   
                   
-                    {p.user_id !== user?.id && !helpRequests.some(h=>h.post_id===String(p.id)&&h.helper_id===user?.id) && <button onClick={()=>{ setDmPost(p); supabase.from('help_requests').insert({ post_id:String(p.id), post_body:p.body, requester_id:p.user_id, requester_name:p.user, helper_id:user?.id, helper_name:displayName, status:'pending' }); }} style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:5, padding:"6px 14px", borderRadius:20, border:"none", background:G, color:"#fff", cursor:"pointer", fontSize:12, fontWeight:700 }}>
+                    {p.user_id !== user?.id && !helpRequests.some(h=>h.post_id===String(p.id)&&h.helper_id===user?.id) && <button onClick={()=>{ setDmPost(p); supabase.from('help_requests').insert({ post_id:String(p.id), post_body:p.body, requester_id:p.user_id, requester_name:p.user, helper_id:user?.id, helper_name:displayName, status:'pending', show_after: new Date(Date.now() + 12*60*60*1000).toISOString() }); }} style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:5, padding:"6px 14px", borderRadius:20, border:"none", background:G, color:"#fff", cursor:"pointer", fontSize:12, fontWeight:700 }}>
                       {p.type==="event"?t.join:t.respond}<Icon n="chevronRight" size={13} color="#fff"/>
                     </button>}
                   </div>
@@ -1955,9 +1978,9 @@ const filtPosts = allPosts.filter(p=>{
     <button onClick={()=>setHelpTab("given")} style={{ flex:1, padding:"8px 0", borderRadius:10, border:"none", background:helpTab==="given"?G:"transparent", color:helpTab==="given"?"#fff":mid, fontWeight:700, fontSize:12, cursor:"pointer" }}>{lang==="NL"?"Verleend":"Given"}</button>
     <button onClick={()=>setHelpTab("received")} style={{ flex:1, padding:"8px 0", borderRadius:10, border:"none", background:helpTab==="received"?G:"transparent", color:helpTab==="received"?"#fff":mid, fontWeight:700, fontSize:12, cursor:"pointer" }}>{lang==="NL"?"Ontvangen":"Received"}</button>
   </div>
-  {helpRequests.filter(h=>helpTab==="given"?h.helper_id===user?.id&&h.helper_confirmed===null:h.requester_id===user?.id&&h.requester_confirmed===null).length===0?(
+  {helpRequests.filter(h=>new Date(h.show_after) <= new Date() && (helpTab==="given"?h.helper_id===user?.id&&h.helper_confirmed===null:h.requester_id===user?.id&&h.requester_confirmed===null)).length===0?(
     <div style={{ textAlign:"center", padding:"20px 0", color:mid, fontSize:13 }}>{lang==="NL"?"Nog geen yardımlar":"No help yet"}</div>
-  ):helpRequests.filter(h=>helpTab==="given"?h.helper_id===user?.id&&h.helper_confirmed===null:h.requester_id===user?.id&&h.requester_confirmed===null).map(h=>(
+  ):helpRequests.filter(h=>new Date(h.show_after) <= new Date() && (helpTab==="given"?h.helper_id===user?.id&&h.helper_confirmed===null:h.requester_id===user?.id&&h.requester_confirmed===null)).map(h=>(
     <div key={h.id} style={{ background:warm, borderRadius:12, padding:"12px 14px", marginBottom:8 }}>
       <div style={{ fontSize:13, color:ink, marginBottom:8 }}>{helpTab==="given"?(h.offer_body||h.post_body)?.substring(0,60):h.post_body?.substring(0,60)}...</div>
       <div style={{ fontSize:11, color:mid, marginBottom:8 }}>{helpTab==="given"?h.requester_name:h.helper_name}</div>
@@ -1972,6 +1995,27 @@ const filtPosts = allPosts.filter(p=>{
     </div>
   ))}
 </div>
+
+<div style={{ margin:"16px 0", padding:"16px", background:GL, borderRadius:16, border:"1px solid "+G+"30" }}>
+  <div style={{ fontSize:12, color:G, fontWeight:700, marginBottom:0 }}>
+    {t.referralTitle}
+  </div>
+  <div style={{ fontSize:11, color:G, opacity:0.7, marginBottom:0 }}>
+    {t.referralNote}
+  </div>
+  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+    <span style={{ fontSize:22, fontWeight:800, color:ink, letterSpacing:4, fontFamily:"DM Sans,sans-serif" }}>
+      {profile?.referral_code || "—"}
+    </span>
+    <button
+      onClick={()=>navigator.clipboard.writeText(profile?.referral_code || "")}
+      style={{ background:G, color:"#fff", border:"none", borderRadius:10, padding:"8px 14px", fontSize:12, fontWeight:700, cursor:"pointer" }}
+    >
+      {t.referralCopy}
+    </button>
+  </div>
+</div>
+
             <div style={{ background:card, border:"1px solid "+bdr, borderRadius:16, overflow:"hidden", marginBottom:12 }}>
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 16px", borderBottom:"1px solid "+bdr }}>
                 <div style={{ display:"flex", alignItems:"center", gap:10 }}><Icon n="globe" size={17} color={G}/><span style={{ fontSize:14, fontWeight:500, color:ink }}>{t.langPref}</span></div>
@@ -2024,7 +2068,6 @@ const filtPosts = allPosts.filter(p=>{
             <Av ini={(activeConv.sender_id===user?.id?activeConv.receiver_name||"?":activeConv.sender_name||"?")[0]?.toUpperCase()||"?"} size={36} col={G} ver={false} imgUrl={activeConv.other_avatar}/>
             <div>
               <div style={{ fontSize:14, fontWeight:700, color:ink }}>{activeConv.sender_id===user?.id ? activeConv.receiver_name||"User" : activeConv.sender_name||"User"}</div>
-              <div style={{ fontSize:11, color:G, fontWeight:600 }}>{activeConv.last_seen ? (Date.now()-new Date(activeConv.last_seen).getTime()<300000?"Online":"Last seen "+Math.floor((Date.now()-new Date(activeConv.last_seen).getTime())/60000)+" min ago") : "Online"}</div>
             </div>
           </div>
           <div style={{ flex:1, overflowY:"auto", padding:16, display:"flex", flexDirection:"column", gap:10 }}>
@@ -2126,11 +2169,16 @@ function EditProfileModal({ user, profile, onClose, onSave, lang }) {
 }
 
 export default function Root() {
-  const [authed, setAuthed] = useState(false); const [showIntro, setShowIntro] = useState(true);
+  const [authed, setAuthed] = useState(false); const [showIntro, setShowIntro] = useState(()=>{
+  return !sessionStorage.getItem("introSeen");
+});
   const [user, setUser] = useState(null);
   const [lang, setLang] = useState("EN");
   const [dm, setDm] = useState(false);
   const [verified, setVerified] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(()=>{
+  return !sessionStorage.getItem("onboardingSeen");
+});
 
   useEffect(()=>{
     supabase.auth.getSession().then(({data:{session}})=>{
@@ -2147,7 +2195,8 @@ export default function Root() {
   
  if(showIntro) {
   window.__cohoodFinish = () => setShowIntro(false);
-  return <CoHoodIntro onFinish={()=>setShowIntro(false)}/>; }
+  return <CoHoodIntro onFinish={()=>{ sessionStorage.setItem("introSeen","1"); setShowIntro(false); }}/>; }
+  if(showOnboarding) return <CoHoodOnboarding onFinish={()=>{ sessionStorage.setItem("onboardingSeen","1"); setShowOnboarding(false); }} lang={lang}/>;
   if(!authed) return <Auth onLogin={(u)=>{ setUser(u); setAuthed(true); }} lang={lang} setLang={setLang}/>;
   return <App2 lang={lang} setLang={setLang} onLogout={handleLogout} dm={dm} setDm={setDm} verified={verified} setVerified={setVerified} user={user}/>;
 }
