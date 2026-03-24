@@ -10,6 +10,7 @@ import CoHoodOnboarding from './CoHoodOnboarding';
 
 
 
+
 const P = {
   home:"M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z M9 21V12h6v9",
   heart:"M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z",
@@ -999,6 +1000,9 @@ function App2({ lang, setLang, onLogout, dm, setDm, verified, setVerified, user 
   const [comments, setComments] = useState({});
   const [cmtInput, setCmtInput] = useState({});
   const [cmtList, setCmtList] = useState({});
+  const [adminAnnTitle, setAdminAnnTitle] = useState("");
+  const [adminAnnBody, setAdminAnnBody] = useState("");
+  const [adminAnnouncements, setAdminAnnouncements] = useState([]);
   useEffect(()=>{
   if(posts.length){
     [...posts,...realPosts].forEach(p=>{
@@ -1118,6 +1122,7 @@ useEffect(()=>{
       supabase.from("profiles").select("id,points").in("id",userIds).then(({data:profiles})=>{
         const ptsMap = {};
         if(profiles) profiles.forEach(pr=>ptsMap[pr.id]=pr.points||0);
+        data.sort((a,b)=> (b.pinned?1:0) - (a.pinned?1:0));
         setRealPosts(data.map(p=>({
           id:p.id, user_id:p.user_id, type:p.type||"help", user:p.full_name||"User",
           ini:(p.full_name||"U")[0].toUpperCase(), ver:false,
@@ -1125,7 +1130,7 @@ useEffect(()=>{
           cat:p.category||"", icon:CAT_ICONS[p.category]||"tool",
           offer_category:p.offer_category||"",
           offer_icon:CAT_ICONS[p.offer_category]||"",
-          body:p.body, offer:p.offer, likes:0, replies:0,
+          body:p.body, offer:p.offer, likes:0, replies:0, pinned:p.pinned,
           urgent:p.urgent, hood:p.neighborhood,
           avatar_url:p.avatar_url,
           user_points: ptsMap[p.user_id] ?? p.user_points ?? 0
@@ -1146,6 +1151,7 @@ useEffect(()=>{
     supabase.from('profiles').select('id', {count:'exact'}).eq('neighborhood', displayHood).then(({count})=>setNeighborCount(count||0));
     supabase.from('neighborhood_populations').select('population').eq('neighborhood', displayHood).then(({data})=>{ if(data&&data.length>0) setNeighborhoodPop(data[0].population); });
     supabase.from('announcements').select('*').eq('neighborhood', displayHood).order('created_at', {ascending:false}).then(({data})=>{ if(data) setAnnouncements(data); });
+    supabase.from('admin_announcements').select('*').eq('neighborhood', displayHood).order('created_at', {ascending:false}).then(({data})=>{ if(data) setAdminAnnouncements(data); });
     fetchPosts();
 
     const channel = supabase.channel('posts-realtime-'+displayHood)
@@ -1457,6 +1463,17 @@ const filtPosts = allPosts.filter(p=>{
 </div>
 ))}
 
+{adminAnnouncements.map((a)=>(
+  <div key={a.id} style={{ marginBottom:12, background:card, border:"2px solid "+G, borderRadius:16, padding:16 }}>
+    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+      <div style={{ background:G, borderRadius:6, padding:"3px 10px", fontSize:10, fontWeight:700, color:"#fff" }}>📢 COHOOD</div>
+      <span style={{ fontSize:11, color:mid, marginLeft:"auto" }}>{(()=>{ const diff=Math.floor((Date.now()-new Date(a.created_at).getTime())/60000); if(diff<1) return "just now"; if(diff<60) return diff+" min"; if(diff<1440) return Math.floor(diff/60)+" hr"; return Math.floor(diff/1440)+" days"; })()}</span>
+    </div>
+    {a.title && <div style={{ fontSize:14, fontWeight:700, color:ink, marginBottom:4 }}>{a.title}</div>}
+    <p style={{ margin:0, fontSize:13, color:ink, lineHeight:1.6 }}>{a.body}</p>
+  </div>
+))}
+
 <div
   onClick={()=>setTab("share")}
   style={{ background:card, border:"1px solid "+bdr, borderRadius:16, padding:"12px 14px", marginBottom:12, display:"flex", alignItems:"center", gap:10, cursor:"pointer" }}
@@ -1492,21 +1509,27 @@ const filtPosts = allPosts.filter(p=>{
                           </div>
                         </div>
                         <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
-  {p.user_id===user?.id&&(
-    <div style={{ position:"relative" }}>
-      <button onClick={(e)=>{ e.stopPropagation(); setPostMenu(postMenu===p.id?null:p.id); }} style={{ background:"none", border:"none", cursor:"pointer", color:mid, padding:"2px 6px", fontSize:16, lineHeight:1 }}>···</button>
-      {postMenu===p.id&&(
-        <div style={{ position:"absolute", right:0, top:24, background:card, border:"1px solid "+bdr, borderRadius:10, zIndex:50, minWidth:130, boxShadow:"0 4px 12px rgba(0,0,0,.08)" }}>
-          <button onClick={async(e)=>{ e.stopPropagation(); await supabase.from("posts").delete().eq("id",p.id); setRealPosts(prev=>prev.filter(x=>x.id!==p.id)); setPostMenu(null); }} style={{ width:"100%", padding:"11px 14px", background:"none", border:"none", cursor:"pointer", fontSize:13, color:R, fontWeight:600, textAlign:"left", display:"flex", alignItems:"center", gap:8 }}>
-            <Icon n="alert" size={14} color={R}/> {lang==="NL"?"Verwijderen":"Delete post"}
-          </button>
-        </div>
-      )}
-    </div>
-  )}
+  {(p.user_id===user?.id || profile?.role==="admin") &&(
+  <div style={{ position:"relative" }}>
+    <button onClick={(e)=>{ e.stopPropagation(); setPostMenu(postMenu===p.id?null:p.id); }} style={{ background:"none", border:"none", cursor:"pointer", color:mid, padding:"2px 6px", fontSize:16, lineHeight:1 }}>···</button>
+    {postMenu===p.id&&(
+      <div style={{ position:"absolute", right:0, top:24, background:card, border:"1px solid "+bdr, borderRadius:10, zIndex:50, minWidth:130, boxShadow:"0 4px 12px rgba(0,0,0,.08)" }}>
+        {profile?.role==="admin" && (
+  <button onClick={async(e)=>{ e.stopPropagation(); await supabase.from("posts").update({pinned:!p.pinned}).eq("id",p.id); setRealPosts(prev=>prev.map(x=>x.id===p.id?{...x,pinned:!p.pinned}:x)); setPostMenu(null); }} style={{ width:"100%", padding:"11px 14px", background:"none", border:"none", cursor:"pointer", fontSize:13, color:p.pinned?R:G, fontWeight:600, textAlign:"left", display:"flex", alignItems:"center", gap:8 }}>
+    <Icon n="star" size={14} color={p.pinned?R:G}/> {p.pinned ? "Unpin post" : "Pin post"}
+  </button>
+)}
+        <button onClick={async(e)=>{ e.stopPropagation(); await supabase.from("posts").delete().eq("id",p.id); setRealPosts(prev=>prev.filter(x=>x.id!==p.id)); setPostMenu(null); }} style={{ width:"100%", padding:"11px 14px", background:"none", border:"none", cursor:"pointer", fontSize:13, color:R, fontWeight:600, textAlign:"left", display:"flex", alignItems:"center", gap:8 }}>
+          <Icon n="alert" size={14} color={R}/> {lang==="NL"?"Verwijderen":"Delete post"}
+        </button>
+      </div>
+    )}
+  </div>
+)}
                           <div style={{ display:"flex", alignItems:"center", gap:4, background:tc.bg, padding:"3px 8px", borderRadius:20 }}>
                             <Icon n={p.icon} size={11} color={tc.color}/><span style={{ fontSize:11, fontWeight:700, color:tc.color }}>{p.cat}</span>
                           </div>
+
                           {p.urgent&&(
                             <div style={{ display:"flex", alignItems:"center", gap:4, background:RL, padding:"3px 8px", borderRadius:20 }}>
                               <div style={{ width:5, height:5, borderRadius:"50%", background:R, animation:"pulse 1.2s infinite" }}/>
@@ -1915,7 +1938,7 @@ const filtPosts = allPosts.filter(p=>{
     const fileName=user?.id+'/'+Date.now()+'.'+ext;
     const {error}=await supabase.storage.from('avatars').upload(fileName,file,{upsert:true});
     
-    if(!error){ const {data}=supabase.storage.from('avatars').getPublicUrl(fileName); setProfile(prev=>({...prev,avatar_url:data.publicUrl})); await supabase.from('profiles').update({avatar_url:data.publicUrl}).eq('id',user?.id); }
+    if(!error){ const {data}=supabase.storage.from('avatars').getPublicUrl(fileName); setProfile(prev=>({...prev,avatar_url:data.publicUrl})); await supabase.from('profiles').update({avatar_url:data.publicUrl}).eq('id',user?.id); await supabase.from('posts').update({avatar_url:data.publicUrl}).eq('user_id',user?.id); }
     else alert(error.message);
   }}/>
 </div>
@@ -2044,12 +2067,39 @@ const filtPosts = allPosts.filter(p=>{
               </div>
             
             </div>
+            {profile?.role === 'admin' && (
+  <button onClick={()=>setTab('admin')} style={{ width:"100%", marginBottom:10, padding:"13px 0", background:"#1A1510", color:"#FFD700", border:"1.5px solid #FFD70030", borderRadius:14, fontSize:14, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
+    <Icon n="shield" size={16} color="#FFD700"/> Admin Panel
+  </button>
+)}
             <button onClick={onLogout} style={{ width:"100%", padding:"13px 0", background:"transparent", color:R, border:"1.5px solid "+R+"30", borderRadius:14, fontSize:14, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
               <Icon n="back" size={16} color={R}/> {t.logout}
             </button>
           </div>
+      
         )}
       </div>
+      {tab==="admin" && profile?.role==="admin" &&(
+  <div style={{ padding:"18px 16px" }}>
+    <h2 style={{ margin:"0 0 4px", fontSize:20, fontWeight:700, color:ink, fontFamily:"Playfair Display,serif" }}>Admin Panel</h2>
+    <p style={{ color:mid, fontSize:13, margin:"0 0 20px" }}>Manage CoHood</p>
+
+    {/* Announcement */}
+    <div style={{ background:card, border:"1px solid "+bdr, borderRadius:16, padding:16, marginBottom:12 }}>
+      <div style={{ fontSize:13, fontWeight:700, color:ink, marginBottom:10 }}>📢 Send Announcement</div>
+      <input value={adminAnnTitle||""} onChange={e=>setAdminAnnTitle(e.target.value)} placeholder="Title..." style={{ width:"100%", padding:"10px 12px", borderRadius:10, border:"1.5px solid "+bdr, background:warm, color:ink, fontSize:13, fontFamily:"DM Sans,sans-serif", outline:"none", boxSizing:"border-box", marginBottom:8 }}/>
+      <textarea value={adminAnnBody||""} onChange={e=>setAdminAnnBody(e.target.value)} placeholder="Message..." style={{ width:"100%", minHeight:80, padding:"10px 12px", borderRadius:10, border:"1.5px solid "+bdr, background:warm, color:ink, fontSize:13, fontFamily:"DM Sans,sans-serif", resize:"none", outline:"none", boxSizing:"border-box", marginBottom:10 }}/>
+      <button onClick={async()=>{
+        if(!adminAnnTitle?.trim()||!adminAnnBody?.trim()) return;
+        await supabase.from('admin_announcements').insert({ title:adminAnnTitle, body:adminAnnBody, neighborhood:displayHood, created_by:user?.id });
+        setAdminAnnTitle(""); setAdminAnnBody("");
+        alert("Announcement sent!");
+      }} style={{ width:"100%", padding:"11px 0", background:G, color:"#fff", border:"none", borderRadius:12, fontSize:13, fontWeight:700, cursor:"pointer" }}>
+        Send
+      </button>
+    </div>
+    </div>
+)}
 
       <div style={{ background:dm?"#1A1510":"#fff", borderTop:"1px solid "+bdr, display:"flex", padding:"8px 0 4px", position:"sticky", bottom:0, zIndex:50 }}>
         <NavBtn k="feed" icon="home" label={t.feed}/>
