@@ -155,12 +155,15 @@ const TXT = {
     giveDesc:"Share your needs and what you can offer. Together we are stronger!",
     nextBtn:"Next",getStarted:"Get Started!",
     errName:"Please enter your name",errEmail:"Please enter a valid email",
-    errPass:"Password must be at least 6 characters",errPassMatch:"Passwords do not match",
+    errPass:"Password must be at least 8 characters with uppercase, number and symbol",errPassMatch:"Passwords do not match",
     errHood:"Please select your neighborhood",
     offersList:["Translation","Cooking","Gardening","Transport","Repairs","Childcare","Other"],
     referralTitle:"Refer a neighbor, earn 200 Co-Points",
     referralNote:"Points are awarded after your neighbor's ID verification.",
     referralCopy:"Copy",
+    termsText:"I agree to the ",
+    termsLink:"Terms & Conditions",
+    termsError:"Please accept the terms to continue.",
   },
   NL:{
     tagline:"Platform voor buurtsolidariteit",
@@ -223,12 +226,15 @@ const TXT = {
     giveDesc:"Deel je behoeften en aanbod. Samen zijn we sterker!",
     nextBtn:"Volgende",getStarted:"Aan de slag!",
     errName:"Vul je naam in",errEmail:"Voer een geldig e-mailadres in",
-    errPass:"Wachtwoord moet minimaal 6 tekens zijn",errPassMatch:"Wachtwoorden komen niet overeen",
+    errPass:"Wachtwoord moet minimaal 8 tekens, hoofdletter, cijfer en symbool bevatten",errPassMatch:"Wachtwoorden komen niet overeen",
     errHood:"Kies je buurt",
     offersList:["Vertaling","Koken","Tuinieren","Vervoer","Reparaties","Kinderopvang","Anders"],
     referralTitle:"Verwijs een buur, verdien 200 Co-Points",
     referralNote:"Punten worden toegekend na ID-verificatie van je buur.",
     referralCopy:"Kopiëren",
+    termsText:"Ik ga akkoord met de ",
+    termsLink:"Gebruiksvoorwaarden",
+    termsError:"Accepteer de voorwaarden om door te gaan.",
   },
 };
 
@@ -496,6 +502,9 @@ function Auth({ onLogin, lang, setLang }) {
   const [avatarUrl, setAvatarUrl] = useState(null);
   const [loading, setLoading] = useState(false);
   const [referralCode, setReferralCode] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  
 
   const onbSlides = [
     { icon:"users", bg:GL, color:G, title:t.welcomeTitle, desc:t.welcomeDesc },
@@ -516,9 +525,17 @@ function Auth({ onLogin, lang, setLang }) {
   const handleRegister = async () => {
     if (!name.trim()) { alert(t.errName); return; }
     if (!email||!email.includes("@")) { alert(t.errEmail); return; }
-    if (!pass||pass.length<6) { alert(t.errPass); return; }
+    if (!pass||pass.length<8) { alert(t.errPass); return; }
+const hasUpper = /[A-Z]/.test(pass);
+const hasNumber = /[0-9]/.test(pass);
+const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pass);
+if (!hasUpper || !hasNumber || !hasSymbol) {
+  alert(lang==="NL" ? "Wachtwoord moet minimaal 8 tekens, een hoofdletter, een cijfer en een symbool bevatten." : "Password must be at least 8 characters and include an uppercase letter, a number, and a symbol.");
+  return;
+}
     if (pass!==pass2) { alert(t.errPassMatch); return; }
     if (!hood) { alert(t.errHood); return; }
+    if (!termsAccepted) { alert(t.termsError); return; }
     setLoading(true);
     const { error } = await signUp(email, pass, name, hood, referralCode.trim());
     setLoading(false);
@@ -583,6 +600,13 @@ function Auth({ onLogin, lang, setLang }) {
           <InputField icon="lock" ph={t.passPh} val={pass} onChange={e=>setPass(e.target.value)} isPass/>
           <InputField icon="lock" ph={t.confirmPh} val={pass2} onChange={e=>setPass2(e.target.value)} isPass/>
           <InputField icon="users" ph="Referral code (optional)" val={referralCode} onChange={e=>setReferralCode(e.target.value.toUpperCase())}/>
+          <div style={{ display:"flex", alignItems:"center", gap:10, padding:"4px 0" }}>
+  <input type="checkbox" id="terms" checked={termsAccepted} onChange={e=>setTermsAccepted(e.target.checked)} style={{ width:18, height:18, cursor:"pointer", accentColor:G }}/>
+  <label htmlFor="terms" style={{ fontSize:13, color:"#6B5E4E", fontFamily:"DM Sans,sans-serif" }}>
+    {t.termsText}
+    <button onClick={()=>setShowTerms(true)} style={{ background:"none", border:"none", color:G, fontWeight:700, cursor:"pointer", fontSize:13, fontFamily:"DM Sans,sans-serif", padding:0 }}>{t.termsLink}</button>
+  </label>
+</div>
           <select value={hood} onChange={e=>setHood(e.target.value)} style={{ padding:"12px 14px", background:"#F0EBE1", border:"1.5px solid #E2D9CC", borderRadius:12, fontSize:14, color:hood?"#2C2416":"#A8997E", fontFamily:"DM Sans,sans-serif", outline:"none", cursor:"pointer" }}>
             <option value="" disabled>{t.hoodPh}</option>
             {AMSTERDAM_HOODS.map(h=><option key={h} value={h}>{h}</option>)}
@@ -599,6 +623,48 @@ function Auth({ onLogin, lang, setLang }) {
           {t.hasAcc}{" "}<button onClick={()=>setScreen("login")} style={{ background:"none", border:"none", color:G, fontWeight:700, cursor:"pointer", fontSize:13, fontFamily:"DM Sans,sans-serif" }}>{t.login}</button>
         </div>
       </div>
+
+{showTerms && (
+  <div style={{ position:"fixed", inset:0, zIndex:300, background:"rgba(0,0,0,.5)", display:"flex", alignItems:"flex-end", justifyContent:"center" }} onClick={()=>setShowTerms(false)}>
+    <div style={{ background:"#fff", borderRadius:"20px 20px 0 0", width:"100%", maxWidth:480, padding:"20px 24px 40px", maxHeight:"80vh", overflowY:"auto" }} onClick={e=>e.stopPropagation()}>
+      <div style={{ width:36, height:4, background:"#E2D9CC", borderRadius:2, margin:"0 auto 20px" }}/>
+      <h2 style={{ fontFamily:"Playfair Display,serif", fontSize:20, fontWeight:700, color:"#2C2416", margin:"0 0 16px" }}>Terms & Conditions</h2>
+<p style={{ fontSize:13, color:"#6B5E4E", lineHeight:1.8, marginBottom:16 }}>Welcome to CoHood. By creating an account and using this platform, you agree to be bound by the following terms and conditions. Please read them carefully.</p>
+
+<p style={{ fontSize:13, fontWeight:700, color:"#2C2416", marginBottom:4 }}>1. Eligibility</p>
+<p style={{ fontSize:13, color:"#6B5E4E", lineHeight:1.8, marginBottom:12 }}>You must be at least 18 years old to use CoHood. Each person may only hold one account. Creating multiple accounts is strictly prohibited and may result in permanent suspension.</p>
+
+<p style={{ fontSize:13, fontWeight:700, color:"#2C2416", marginBottom:4 }}>2. Community Standards</p>
+<p style={{ fontSize:13, color:"#6B5E4E", lineHeight:1.8, marginBottom:12 }}>CoHood is built on trust and mutual respect. All members must treat each other with dignity. Harassment, hate speech, discriminatory behavior, spam, or commercial advertising is strictly prohibited and will result in immediate removal.</p>
+
+<p style={{ fontSize:13, fontWeight:700, color:"#2C2416", marginBottom:4 }}>3. Identity Verification</p>
+<p style={{ fontSize:13, color:"#6B5E4E", lineHeight:1.8, marginBottom:12 }}>To ensure community safety, members may be required to verify their identity using a valid government-issued ID. Providing false or misleading information during verification is strictly prohibited and constitutes grounds for permanent account termination.</p>
+
+<p style={{ fontSize:13, fontWeight:700, color:"#2C2416", marginBottom:4 }}>4. Privacy & Data</p>
+<p style={{ fontSize:13, color:"#6B5E4E", lineHeight:1.8, marginBottom:12 }}>We collect only the data necessary to provide our service, including your name, email address, neighborhood, profile photo, and verification documents. Your data is stored securely on EU-based servers (Supabase). CoHood complies with the General Data Protection Regulation (GDPR). Your data may be used to improve the platform and user experience. You may request deletion of your account and associated data at any time by contacting us.</p>
+
+<p style={{ fontSize:13, fontWeight:700, color:"#2C2416", marginBottom:4 }}>5. Content Responsibility</p>
+<p style={{ fontSize:13, color:"#6B5E4E", lineHeight:1.8, marginBottom:12 }}>You are solely responsible for the content you post on CoHood. You may not post illegal, harmful, misleading, or offensive content. CoHood reserves the right to remove any content that violates these terms without prior notice.</p>
+
+<p style={{ fontSize:13, fontWeight:700, color:"#2C2416", marginBottom:4 }}>6. Co-Points</p>
+<p style={{ fontSize:13, color:"#6B5E4E", lineHeight:1.8, marginBottom:12 }}>Co-Points are earned through genuine community participation. CoHood reserves the right to modify the value, earning rules, and redemption options of Co-Points at any time as the platform evolves. In cases of fraud or manipulation, all Co-Points associated with the offending account may be permanently revoked. Co-Points are non-transferable between accounts.</p>
+
+<p style={{ fontSize:13, fontWeight:700, color:"#2C2416", marginBottom:4 }}>7. Account Suspension</p>
+<p style={{ fontSize:13, color:"#6B5E4E", lineHeight:1.8, marginBottom:12 }}>CoHood reserves the right to suspend or permanently terminate any account that violates these terms, without prior warning. Suspended accounts forfeit all accumulated Co-Points. Appeals may be submitted via email.</p>
+
+<p style={{ fontSize:13, fontWeight:700, color:"#2C2416", marginBottom:4 }}>8. Disclaimer of Liability</p>
+<p style={{ fontSize:13, color:"#6B5E4E", lineHeight:1.8, marginBottom:12 }}>CoHood is a community platform and does not mediate, guarantee, or take responsibility for interactions, agreements, or disputes between members. Any help, services, or exchanges arranged through the platform are solely between the participating members. CoHood is not liable for any damages, losses, or injuries arising from such interactions.</p>
+
+<p style={{ fontSize:13, fontWeight:700, color:"#2C2416", marginBottom:4 }}>9. Platform Availability</p>
+<p style={{ fontSize:13, color:"#6B5E4E", lineHeight:1.8, marginBottom:12 }}>CoHood does not guarantee uninterrupted access to the platform. We reserve the right to modify, suspend, or discontinue any part of the service at any time without liability.</p>
+
+<p style={{ fontSize:13, fontWeight:700, color:"#2C2416", marginBottom:4 }}>10. Changes to These Terms</p>
+<p style={{ fontSize:13, color:"#6B5E4E", lineHeight:1.8, marginBottom:24 }}>CoHood may update these Terms & Conditions at any time. Continued use of the platform after changes constitutes acceptance of the new terms. We will notify users of significant changes where possible.</p>
+      <button onClick={()=>setShowTerms(false)} style={{ width:"100%", padding:"13px 0", background:"#3D6B35", color:"#fff", border:"none", borderRadius:14, fontSize:14, fontWeight:700, cursor:"pointer" }}>Close</button>
+    </div>
+  </div>
+)}
+
     </Wrap>
   );
 
@@ -1000,6 +1066,7 @@ function App2({ lang, setLang, onLogout, dm, setDm, verified, setVerified, user 
   const [comments, setComments] = useState({});
   const [cmtInput, setCmtInput] = useState({});
   const [cmtList, setCmtList] = useState({});
+  const [tierUpModal, setTierUpModal] = useState(null);
   const [adminAnnTitle, setAdminAnnTitle] = useState("");
   const [adminAnnBody, setAdminAnnBody] = useState("");
   const [adminAnnouncements, setAdminAnnouncements] = useState([]);
@@ -1093,7 +1160,15 @@ useEffect(()=>{
   if(user?.id){
     supabase.from("profiles").select("*").eq("id",user.id).single().then(({data, error})=>{
       if(data){
-        setProfile(data);
+  setProfile(prev => {
+    const prevPoints = prev?.points || 0;
+    const newPoints = data?.points || 0;
+    const getTier = (pts) => pts <= 500 ? 1 : pts <= 2500 ? 2 : pts <= 7500 ? 3 : pts <= 20000 ? 4 : pts <= 50000 ? 5 : pts <= 150000 ? 6 : 7;
+    const prevTier = getTier(prevPoints);
+    const newTier = getTier(newPoints);
+    if (newTier > prevTier && prevPoints > 0) setTierUpModal(newTier);
+    return data;
+  });
       } else {
         // Profil yok, oluştur
         supabase.from("profiles").insert({
@@ -1229,6 +1304,42 @@ useEffect(()=>{
 useEffect(()=>{
   convEndRef.current?.scrollIntoView({behavior:"smooth"});
 },[convMessages]);
+
+useEffect(()=>{
+  if(!tierUpModal) return;
+  const canvas = document.getElementById("confetti-canvas");
+  if(!canvas) return;
+  const ctx = canvas.getContext("2d");
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const pieces = Array.from({length:120}, ()=>({
+    x: Math.random()*canvas.width,
+    y: Math.random()*canvas.height - canvas.height,
+    r: 6+Math.random()*6,
+    d: 2+Math.random()*3,
+    color: ["#3D6B35","#FFD700","#5A3A7A","#E05A1A","#2A5A8A"][Math.floor(Math.random()*5)],
+    tilt: Math.random()*10-10,
+    tiltAngle: 0,
+    tiltSpeed: 0.1+Math.random()*0.1
+  }));
+  let rafId;
+  function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    pieces.forEach(p=>{
+      p.tiltAngle += p.tiltSpeed;
+      p.y += p.d;
+      p.tilt = Math.sin(p.tiltAngle)*12;
+      if(p.y > canvas.height) { p.y=-10; p.x=Math.random()*canvas.width; }
+      ctx.beginPath();
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x+p.tilt, p.y, p.r, p.r*0.4);
+    });
+    rafId = requestAnimationFrame(draw);
+  }
+  draw();
+  return ()=>cancelAnimationFrame(rafId);
+},[tierUpModal]);
+
   const displayIni = displayName[0]?.toUpperCase()||"U";
 
   const requireVer = (fn) => {
@@ -1501,7 +1612,7 @@ const filtPosts = allPosts.filter(p=>{
                     <div style={{ flex:1 }}>
                       <div style={{ display:"flex", justifyContent:"space-between" }}>
                         <div>
-                          <div style={{ fontSize:14, fontWeight:700, color:ink }}>{p.user} <span style={{ fontSize:11, fontWeight:400, color:mid }}>{(()=>{ const pts=p.user_points||0; const levels=[{max:500,icon:"🌱",name:"Newcomer"},{max:2500,icon:"👁️",name:"Observer"},{max:7500,icon:"🤝",name:"Neighbor"},{max:20000,icon:"⭐",name:"Contributor"},{max:50000,icon:"🔗",name:"Connector"},{max:150000,icon:"🛡️",name:"Steward"},{max:Infinity,icon:"👑",name:"Urban Visionary"}]; const idx=levels.findIndex(x=>pts<=x.max); const lvl=idx===-1?7:idx+1; const l=levels[idx]||levels[0]; return "("+l.icon+" "+l.name+" · Lv."+lvl+")"; })()}</span></div>
+                          <div style={{ fontSize:14, fontWeight:700, color:ink }}>{p.user} <span style={{ fontSize:11, fontWeight:400, color:mid }}>{(()=>{ const pts=p.user_points||0; const levels=[{max:500,icon:"🌱",name:"Newcomer"},{max:2500,icon:"👁️",name:"Observer"},{max:7500,icon:"🤝",name:"Neighbor"},{max:20000,icon:"⭐",name:"Contributor"},{max:50000,icon:"🔗",name:"Connector"},{max:150000,icon:"🛡️",name:"Steward"},{max:Infinity,icon:"👑",name:"Urban Visionary"}]; const idx=levels.findIndex(x=>pts<=x.max); const lvl=idx===-1?7:idx+1; const l=levels[idx]||levels[0]; return "("+l.icon+" "+l.name+" · Tier "+lvl+")"; })()}</span></div>
                           <div style={{ display:"flex", alignItems:"center", gap:4, marginTop:2 }}>
                             <Icon n="mapPin" size={11} color={mid}/><span style={{ fontSize:12, color:mid }}>{p.hood}</span>
                             <span style={{ color:bdr }}>·</span>
@@ -1983,7 +2094,7 @@ const filtPosts = allPosts.filter(p=>{
         <span style={{ fontSize:28 }}>{cur.icon}</span>
         <div style={{ flex:1 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-            <span style={{ fontSize:15, fontWeight:700, color:ink }}>Level {cur.level} — {cur.name}</span>
+            <span style={{ fontSize:15, fontWeight:700, color:ink }}>Tier {cur.level} — {cur.name}</span>
             <span style={{ fontSize:12, fontWeight:700, color:G }}>{pts} Co-Points</span>
           </div>
           <div style={{ fontSize:11, color:mid, marginTop:2 }}>{cur.desc}</div>
@@ -2079,6 +2190,11 @@ const filtPosts = allPosts.filter(p=>{
       
         )}
       </div>
+
+      <div style={{ textAlign:"center", padding:"24px 0 8px", fontSize:11, color:mid, letterSpacing:1 }}>
+  © 2026 CoHood · Amsterdam
+</div>
+
       {tab==="admin" && profile?.role==="admin" &&(
   <div style={{ padding:"18px 16px" }}>
     <h2 style={{ margin:"0 0 4px", fontSize:20, fontWeight:700, color:ink, fontFamily:"Playfair Display,serif" }}>Admin Panel</h2>
@@ -2181,6 +2297,36 @@ const filtPosts = allPosts.filter(p=>{
       {showVer&&(
         <VerifyModal t={t} dm={dm} onClose={()=>setShowVer(false)} onVerified={()=>{setVerified(true);setShowVer(false);}} user={user} profile={profile}/>
       )}
+
+{tierUpModal && (
+  <div style={{ position:"fixed", inset:0, zIndex:999, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,0.7)", backdropFilter:"blur(6px)" }} onClick={()=>setTierUpModal(null)}>
+    <div style={{ background:card, borderRadius:24, padding:"36px 28px", maxWidth:320, width:"90%", textAlign:"center", position:"relative" }} onClick={e=>e.stopPropagation()}>
+      <div style={{ fontSize:56, marginBottom:12 }}>
+        {["🌱","👀","🤝","⭐","🔗","🛡️","👑"][tierUpModal-1]}
+      </div>
+      <div style={{ fontSize:11, fontWeight:700, letterSpacing:2, color:G, textTransform:"uppercase", marginBottom:6 }}>Tier {tierUpModal} Unlocked</div>
+      <div style={{ fontSize:22, fontWeight:700, color:ink, fontFamily:"Playfair Display,serif", marginBottom:12 }}>
+        {["Newcomer","Observer","Neighbor","Contributor","Connector","Steward","Urban Visionary"][tierUpModal-1]}
+      </div>
+      <div style={{ fontSize:14, color:mid, lineHeight:1.7, marginBottom:24 }}>
+        {[
+          "Welcome to the neighborhood. Every great community starts with one step.",
+          "You're paying attention. The neighborhood notices.",
+          "You're no longer just a resident. You're a neighbor.",
+          "Your hands have built something real here.",
+          "You bring people together. That's a rare gift.",
+          "The neighborhood trusts you. Guard it well.",
+          "You didn't just join a community. You helped build one."
+        ][tierUpModal-1]}
+      </div>
+      <button onClick={()=>setTierUpModal(null)} style={{ width:"100%", padding:"13px 0", background:G, color:"#fff", border:"none", borderRadius:14, fontSize:14, fontWeight:700, cursor:"pointer" }}>
+        Continue
+      </button>
+    </div>
+    <canvas id="confetti-canvas" style={{ position:"fixed", inset:0, pointerEvents:"none", zIndex:1000, width:"100%", height:"100%" }}/>
+  </div>
+)}
+
 
       <style>{"@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}} @keyframes spin{to{transform:rotate(360deg)}} button:active{transform:scale(.97)}"}</style>
     </div>
