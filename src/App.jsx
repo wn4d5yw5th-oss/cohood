@@ -2390,14 +2390,14 @@ function EditProfileModal({ user, profile, onClose, onSave, lang }) {
 
 export default function Root() {
   const [authed, setAuthed] = useState(false); const [showIntro, setShowIntro] = useState(()=>{
-  return !sessionStorage.getItem("introSeen");
+  return !localStorage.getItem("introSeen");
 });
   const [user, setUser] = useState(null);
   const [lang, setLang] = useState("EN");
   const [dm, setDm] = useState(false);
   const [verified, setVerified] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(()=>{
-  return !sessionStorage.getItem("onboardingSeen");
+  return !localStorage.getItem("onboardingSeen");
 });
 
   useEffect(()=>{
@@ -2415,8 +2415,8 @@ export default function Root() {
   
  if(showIntro) {
   window.__cohoodFinish = () => setShowIntro(false);
-  return <CoHoodIntro onFinish={()=>{ sessionStorage.setItem("introSeen","1"); setShowIntro(false); }}/>; }
-  if(showOnboarding) return <CoHoodOnboarding onFinish={()=>{ sessionStorage.setItem("onboardingSeen","1"); setShowOnboarding(false); }} lang={lang}/>;
+  return <CoHoodIntro onFinish={()=>{ localStorage.setItem("introSeen","1"); setShowIntro(false); }}/>; }
+  if(showOnboarding) return <CoHoodOnboarding onFinish={()=>{ localStorage.setItem("onboardingSeen","1"); setShowOnboarding(false); }} lang={lang}/>;
   if(!authed) return <Auth onLogin={(u)=>{ setUser(u); setAuthed(true); }} lang={lang} setLang={setLang}/>;
   return <App2 lang={lang} setLang={setLang} onLogout={handleLogout} dm={dm} setDm={setDm} verified={verified} setVerified={setVerified} user={user}/>;
 }
