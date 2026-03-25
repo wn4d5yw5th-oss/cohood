@@ -1277,6 +1277,24 @@ useEffect(()=>{
         }
       });
   }
+
+  const interval = setInterval(()=>{
+  supabase.from('help_requests').select('*')
+    .or('requester_id.eq.'+user.id+',helper_id.eq.'+user.id)
+    .order('created_at',{ascending:false})
+    .then(({data})=>{
+      if(data){
+        setHelpRequests(data);
+        setHelpNotifCount(data.filter(r=>
+          new Date(r.show_after) <= new Date() &&
+          ((r.requester_id===user.id && !r.read_by_requester) ||
+          (r.helper_id===user.id && !r.read_by_helper))
+        ).length);
+      }
+    });
+}, 5 * 60 * 1000);
+
+return ()=>clearInterval(interval);
 },[user]);
 
 useEffect(()=>{
@@ -1369,9 +1387,14 @@ if(translatedBody.toLowerCase()===body.toLowerCase()){
 }
 let translatedOffer = offer;
 if(offer){
-  const res2 = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(offer)}&langpair=nl|en`);
-  const data2 = await res2.json();
-  translatedOffer = data2.responseData.translatedText;
+  const res2 = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(offer)}&langpair=${srcLang}|${targetLang}`);
+const data2 = await res2.json();
+translatedOffer = data2.responseData.translatedText;
+if(translatedOffer.toLowerCase()===offer.toLowerCase()){
+  const res4 = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(offer)}&langpair=${targetLang}|${srcLang}`);
+  const data4 = await res4.json();
+  translatedOffer = data4.responseData.translatedText;
+}
 }
 setTranslated(p=>({...p,[id]:{body:translatedBody, offer:translatedOffer}}));
   } catch(e) {
