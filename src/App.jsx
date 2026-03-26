@@ -95,7 +95,7 @@ const POSTS = { EN:[], NL:[] };
 
 const TXT = {
   EN:{
-    tagline:"Neighborhood Solidarity Platform",
+    tagline:"The Social Operating System",
     feed:"Feed",share:"Share",events:"Events",messages:"Messages",profile:"Profile",
     login:"Sign In",register:"Sign Up",loginBtn:"Sign In",registerBtn:"Create Account",
     or:"or",emailPh:"Email address",passPh:"Password",confirmPh:"Confirm password",
@@ -166,7 +166,7 @@ const TXT = {
     termsError:"Please accept the terms to continue.",
   },
   NL:{
-    tagline:"Platform voor buurtsolidariteit",
+    tagline:"The Social Operating System",
     feed:"Feed",share:"Delen",events:"Evenementen",messages:"Berichten",profile:"Profiel",
     login:"Inloggen",register:"Registreren",loginBtn:"Inloggen",registerBtn:"Account Aanmaken",
     or:"of",emailPh:"E-mailadres",passPh:"Wachtwoord",confirmPh:"Wachtwoord bevestigen",
@@ -1044,6 +1044,25 @@ function EventFeedCard({ ev, userId, attending, attendees, onAttend, onCancel, e
         {isOrganizer?(
           <div style={{ marginTop:8, padding:"7px 12px", background:"#EBF3E8", borderRadius:8, fontSize:12, color:"#3D6B35", fontWeight:600 }}>
             {lang==="NL"?"Jouw evenement · "+joiningAttendees.length+" aanwezig":"Your event · "+joiningAttendees.length+" attending"}
+            {joiningAttendees.length > 0 && (
+  <div style={{ marginTop:8 }}>
+    <div style={{ fontSize:11, fontWeight:700, color:"#3D6B35", marginBottom:6, letterSpacing:0.5 }}>ATTENDEES</div>
+    {joiningAttendees.map(a=>(
+      <div key={a.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 0", borderBottom:"1px solid #E2D9CC" }}>
+        <Av ini={(a.user_name||"?")[0]} size={28} col="#3D6B35" imgUrl={a.avatar_url}/>
+        <span style={{ flex:1, fontSize:12, color:"#2C2416", fontWeight:600 }}>{a.user_name}</span>
+        {a.organizer_confirmed===null && (
+          <div style={{ display:"flex", gap:4 }}>
+            <button onClick={async(e)=>{ e.stopPropagation(); await supabase.from('event_attendees').update({organizer_confirmed:true}).eq('id',a.id); }} style={{ padding:"4px 10px", background:"#3D6B35", color:"#fff", border:"none", borderRadius:8, fontSize:11, fontWeight:700, cursor:"pointer" }}>✓</button>
+            <button onClick={async(e)=>{ e.stopPropagation(); await supabase.from('event_attendees').update({organizer_confirmed:false}).eq('id',a.id); }} style={{ padding:"4px 10px", background:"#FFF0F0", color:"#E53935", border:"none", borderRadius:8, fontSize:11, fontWeight:700, cursor:"pointer" }}>✗</button>
+          </div>
+        )}
+        {a.organizer_confirmed===true && <span style={{ fontSize:11, color:"#3D6B35", fontWeight:700 }}>✓ Confirmed</span>}
+        {a.organizer_confirmed===false && <span style={{ fontSize:11, color:"#E53935", fontWeight:700 }}>✗ Rejected</span>}
+      </div>
+    ))}
+  </div>
+)}
           </div>
         ):(
           <div style={{ display:"flex", gap:6, marginTop:8 }}>
@@ -1076,6 +1095,8 @@ function App2({ lang, setLang, onLogout, dm, setDm, verified, setVerified, user 
   const [adminAnnTitle, setAdminAnnTitle] = useState("");
   const [adminAnnBody, setAdminAnnBody] = useState("");
   const [adminAnnouncements, setAdminAnnouncements] = useState([]);
+  const [attendeeConfirmNotif, setAttendeeConfirmNotif] = useState(null);
+  const [evTab, setEvTab] = useState("create");
   useEffect(()=>{
   if(posts.length){
     [...posts,...realPosts].forEach(p=>{
@@ -1467,8 +1488,8 @@ const filtPosts = allPosts.filter(p=>{
 
   const NavBtn = ({ k, icon, label, badge }) => (
     <button onClick={()=>{ setTab(k); if(k==="messages"){ supabase.from("messages").update({read:true}).eq("receiver_id",user?.id).eq("read",false).then(()=>setUnreadCount(0)); } if(k==="profile"){
-  supabase.from('help_requests').update({read_by_requester:true}).eq('requester_id',user?.id).then();
-  supabase.from('help_requests').update({read_by_helper:true}).eq('helper_id',user?.id).then(()=>setHelpNotifCount(0));
+  supabase.from('help_requests').update({read_by_requester:true}).eq('requester_id',user?.id).lt('show_after', new Date().toISOString()).then();
+  supabase.from('help_requests').update({read_by_helper:true}).eq('helper_id',user?.id).lt('show_after', new Date().toISOString()).then(()=>setHelpNotifCount(0));
 } }} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:3, padding:"7px 0 8px", border:"none", background:"transparent", cursor:"pointer", color:tab===k?G:mid, position:"relative" }}>
       <span style={{ position:"relative" }}>
         <Icon n={icon} size={20} color={tab===k?G:mid} sw={tab===k?2.2:1.6}/>
@@ -1511,7 +1532,16 @@ const filtPosts = allPosts.filter(p=>{
             {notifications.length===0?(
               <div style={{ padding:"24px 16px", textAlign:"center", color:mid, fontSize:13 }}>No notifications yet</div>
             ):notifications.map((n,i)=>(
-              <div key={n.id} onClick={()=>{ setNotifOpen(false); setTab("feed"); }} style={{ display:"flex", gap:10, padding:"12px 16px", borderBottom:"1px solid "+bdr, cursor:"pointer", background:n.read?"transparent":GL }}>
+              <div key={n.id} onClick={()=>{ 
+  setNotifOpen(false); 
+  if(n.type==="event_confirm_attendee") {
+    setAttendeeConfirmNotif(n);
+  } else if(n.type==="event_confirm_organizer") {
+    setTab("events");
+  } else {
+    setTab("feed");
+  }
+}} style={{ display:"flex", gap:10, padding:"12px 16px", borderBottom:"1px solid "+bdr, cursor:"pointer", background:n.read?"transparent":GL }}>
                 <Av ini={(n.from_user_name||"?")[0]} size={36} col={G} imgUrl={n.from_avatar_url}/>
                 <div style={{ flex:1 }}>
                   <span style={{ fontSize:13, color:ink, fontWeight:600 }}>{n.from_user_name}</span>
@@ -1860,9 +1890,18 @@ const filtPosts = allPosts.filter(p=>{
 
     return (
       <div style={{ padding:"20px 16px 40px", background:bg }}>
+        <div style={{ display:"flex", background:"#F0EBE1", borderRadius:12, padding:4, marginBottom:20, border:"1px solid #E2D9CC" }}>
+  <button onClick={()=>setEvTab("create")} style={{ flex:1, padding:"10px 0", borderRadius:9, border:"none", cursor:"pointer", background:evTab!=="myevents"?"#fff":"transparent", color:evTab!=="myevents"?"#2C2416":"#6B5E4E", fontWeight:evTab!=="myevents"?700:500, fontSize:14, fontFamily:"DM Sans,sans-serif" }}>
+    Create
+  </button>
+  <button onClick={()=>setEvTab("myevents")} style={{ flex:1, padding:"10px 0", borderRadius:9, border:"none", cursor:"pointer", background:evTab==="myevents"?"#fff":"transparent", color:evTab==="myevents"?"#2C2416":"#6B5E4E", fontWeight:evTab==="myevents"?700:500, fontSize:14, fontFamily:"DM Sans,sans-serif" }}>
+    My Events
+  </button>
+</div>
         <h2 style={{ margin:"0 0 2px", fontSize:22, fontWeight:700, color:ink, fontFamily:"Playfair Display,serif" }}>{t.evTitle}</h2>
         <div style={{ fontSize:13, color:mid, marginBottom:2 }}>Bring your neighborhood together</div>
         <div style={{ fontSize:12, color:mid, marginBottom:20 }}><span style={{ color:G, fontWeight:600 }}>+500 Co-Points</span> for creating · <span style={{ color:G, fontWeight:600 }}>+50 Co-Points</span> per attendee</div>
+
 
         {success==="ev" ? (
           <div style={{ textAlign:"center", padding:"60px 0" }}>
@@ -2374,6 +2413,31 @@ const filtPosts = allPosts.filter(p=>{
   </div>
 )}
 
+{attendeeConfirmNotif && (
+  <div style={{ position:"fixed", inset:0, zIndex:300, background:"rgba(0,0,0,.5)", display:"flex", alignItems:"center", justifyContent:"center", padding:"0 24px" }} onClick={()=>setAttendeeConfirmNotif(null)}>
+    <div style={{ background:card, borderRadius:20, padding:"28px 24px", width:"100%", maxWidth:420 }} onClick={e=>e.stopPropagation()}>
+      <div style={{ fontSize:18, fontWeight:700, color:ink, fontFamily:"Playfair Display,serif", marginBottom:8 }}>Did you attend?</div>
+      <div style={{ fontSize:13, color:mid, marginBottom:24, lineHeight:1.6 }}>Please confirm whether you attended this event. This helps your organizer and unlocks your Co-Points.</div>
+      <div style={{ display:"flex", gap:10 }}>
+        <button onClick={async()=>{
+          await supabase.from('event_attendees').update({attendee_confirmed:true}).eq('event_id', attendeeConfirmNotif.event_id).eq('user_id', user?.id);
+          await supabase.from('notifications').update({read:true}).eq('id', attendeeConfirmNotif.id);
+          setAttendeeConfirmNotif(null);
+          alert("Confirmed! Waiting for organizer approval.");
+        }} style={{ flex:1, padding:"13px 0", background:G, color:"#fff", border:"none", borderRadius:14, fontSize:14, fontWeight:700, cursor:"pointer" }}>
+          ✓ Yes, I attended
+        </button>
+        <button onClick={async()=>{
+          await supabase.from('event_attendees').update({attendee_confirmed:false}).eq('event_id', attendeeConfirmNotif.event_id).eq('user_id', user?.id);
+          await supabase.from('notifications').update({read:true}).eq('id', attendeeConfirmNotif.id);
+          setAttendeeConfirmNotif(null);
+        }} style={{ flex:1, padding:"13px 0", background:"#FFF0F0", color:R, border:"none", borderRadius:14, fontSize:14, fontWeight:700, cursor:"pointer" }}>
+          ✗ No
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       <style>{"@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}} @keyframes spin{to{transform:rotate(360deg)}} button:active{transform:scale(.97)}"}</style>
     </div>
