@@ -319,7 +319,7 @@ export default function CoHoodIntro({ onFinish }) {
         <div id="cohood-logo-wrap" style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", opacity: 0, textAlign: "center", transition: "none", pointerEvents: "none" }}>
           <img src="/CoHoodLogo.png" alt="CoHood" style={{ width: 260, maxWidth: "80vw", height: "auto", filter: "brightness(0) invert(1)" }} />
           <div id="cohood-tagline" style={{ color: "rgba(220,210,240,0.8)", fontSize: 11, letterSpacing: 3, textTransform: "uppercase", fontFamily: "Georgia,serif", marginTop: 8, opacity: 0, transition: "opacity 0.8s" }}>
-            Neighborhood solidarity platform
+            The Social Operating System
           </div>
         </div>
       </div>
