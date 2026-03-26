@@ -975,6 +975,7 @@ function EventFeedCard({ ev, userId, attending, attendees, onAttend, onCancel, e
   const timeStr = evDate.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
   const joining = attending?.status==='joining';
   const cantgo  = attending?.status==='cant';
+  const eventStarted = new Date() > evDate;
   const joiningAttendees = (attendees||[]).filter(a=>a.status==='joining');
   const isOrganizer = ev.user_id === userId;
   const [showMenu, setShowMenu] = useState(false);
@@ -1044,27 +1045,13 @@ function EventFeedCard({ ev, userId, attending, attendees, onAttend, onCancel, e
         {isOrganizer?(
           <div style={{ marginTop:8, padding:"7px 12px", background:"#EBF3E8", borderRadius:8, fontSize:12, color:"#3D6B35", fontWeight:600 }}>
             {lang==="NL"?"Jouw evenement · "+joiningAttendees.length+" aanwezig":"Your event · "+joiningAttendees.length+" attending"}
-            {joiningAttendees.length > 0 && (
-  <div style={{ marginTop:8 }}>
-    <div style={{ fontSize:11, fontWeight:700, color:"#3D6B35", marginBottom:6, letterSpacing:0.5 }}>ATTENDEES</div>
-    {joiningAttendees.map(a=>(
-      <div key={a.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 0", borderBottom:"1px solid #E2D9CC" }}>
-        <Av ini={(a.user_name||"?")[0]} size={28} col="#3D6B35" imgUrl={a.avatar_url}/>
-        <span style={{ flex:1, fontSize:12, color:"#2C2416", fontWeight:600 }}>{a.user_name}</span>
-        {a.organizer_confirmed===null && (
-          <div style={{ display:"flex", gap:4 }}>
-            <button onClick={async(e)=>{ e.stopPropagation(); await supabase.from('event_attendees').update({organizer_confirmed:true}).eq('id',a.id); }} style={{ padding:"4px 10px", background:"#3D6B35", color:"#fff", border:"none", borderRadius:8, fontSize:11, fontWeight:700, cursor:"pointer" }}>✓</button>
-            <button onClick={async(e)=>{ e.stopPropagation(); await supabase.from('event_attendees').update({organizer_confirmed:false}).eq('id',a.id); }} style={{ padding:"4px 10px", background:"#FFF0F0", color:"#E53935", border:"none", borderRadius:8, fontSize:11, fontWeight:700, cursor:"pointer" }}>✗</button>
-          </div>
-        )}
-        {a.organizer_confirmed===true && <span style={{ fontSize:11, color:"#3D6B35", fontWeight:700 }}>✓ Confirmed</span>}
-        {a.organizer_confirmed===false && <span style={{ fontSize:11, color:"#E53935", fontWeight:700 }}>✗ Rejected</span>}
-      </div>
-    ))}
-  </div>
-)}
           </div>
         ):(
+          eventStarted ? (
+            <div style={{ marginTop:8, padding:"7px 12px", background:"#F0EBE1", borderRadius:8, fontSize:12, color:"#6B5E4E", fontWeight:600 }}>
+              🕐 {lang==="NL"?"Dit evenement is begonnen":"This event has started"}
+            </div>
+          ) : (
           <div style={{ display:"flex", gap:6, marginTop:8 }}>
             <button onClick={()=>onAttend('joining')} style={{ flex:1, padding:"7px 0", background:joining?"#2A5228":"#3D6B35", border:"none", borderRadius:8, fontSize:12, fontWeight:700, color:"#fff", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:4, fontFamily:"DM Sans,sans-serif" }}>
               <Icon n="check" size={11} color="#fff" sw={2.5}/>
@@ -1075,6 +1062,7 @@ function EventFeedCard({ ev, userId, attending, attendees, onAttend, onCancel, e
               {cantgo?(lang==="NL"?"Niet aanwezig":"Not going"):(lang==="NL"?"Kan niet":"Can't go")}
             </button>
           </div>
+          )
         )}
       </div>
     </div>
@@ -1097,6 +1085,7 @@ function App2({ lang, setLang, onLogout, dm, setDm, verified, setVerified, user 
   const [adminAnnouncements, setAdminAnnouncements] = useState([]);
   const [attendeeConfirmNotif, setAttendeeConfirmNotif] = useState(null);
   const [evTab, setEvTab] = useState("create");
+  const [allMyEvents, setAllMyEvents] = useState([]);
   useEffect(()=>{
   if(posts.length){
     [...posts,...realPosts].forEach(p=>{
@@ -1320,13 +1309,14 @@ return ()=>clearInterval(interval);
 
 useEffect(()=>{
   if(displayHood){
-    supabase.from('events').select('*').eq('neighborhood',displayHood).eq('status','active').order('created_at',{ascending:false}).then(({data})=>{ if(data) setRealEvents(data); });
+    supabase.from('events').select('*').eq('neighborhood',displayHood).eq('status','active').gt('event_date', new Date().toISOString()).order('created_at',{ascending:false}).then(({data})=>{ if(data) setRealEvents(data); });
+    supabase.from('events').select('*').eq('user_id', user?.id).order('created_at',{ascending:false}).then(({data})=>{ if(data) setAllMyEvents(data); });
   }
 },[profile?.neighborhood]);
 
 useEffect(()=>{
   if(user?.id && realEvents.length>0){
-    supabase.from('event_attendees').select('*').in('event_id',realEvents.map(e=>e.id)).then(({data})=>{
+    supabase.from('event_attendees').select('*').in('event_id',[...new Set([...realEvents.map(e=>e.id), ...allMyEvents.map(e=>e.id)])]).then(({data})=>{
       if(data){
         const aMap={},eaMap={};
         data.forEach(a=>{
@@ -1537,8 +1527,9 @@ const filtPosts = allPosts.filter(p=>{
   if(n.type==="event_confirm_attendee") {
     setAttendeeConfirmNotif(n);
   } else if(n.type==="event_confirm_organizer") {
-    setTab("events");
-  } else {
+  setTab("events");
+  setEvTab("myevents");
+} else {
     setTab("feed");
   }
 }} style={{ display:"flex", gap:10, padding:"12px 16px", borderBottom:"1px solid "+bdr, cursor:"pointer", background:n.read?"transparent":GL }}>
@@ -1898,11 +1889,44 @@ const filtPosts = allPosts.filter(p=>{
     My Events
   </button>
 </div>
-        <h2 style={{ margin:"0 0 2px", fontSize:22, fontWeight:700, color:ink, fontFamily:"Playfair Display,serif" }}>{t.evTitle}</h2>
-        <div style={{ fontSize:13, color:mid, marginBottom:2 }}>Bring your neighborhood together</div>
-        <div style={{ fontSize:12, color:mid, marginBottom:20 }}><span style={{ color:G, fontWeight:600 }}>+500 Co-Points</span> for creating · <span style={{ color:G, fontWeight:600 }}>+50 Co-Points</span> per attendee</div>
+       {evTab !== "myevents" && <>
+<h2 style={{ margin:"0 0 2px", fontSize:22, fontWeight:700, color:ink, fontFamily:"Playfair Display,serif" }}>{t.evTitle}</h2>
+<div style={{ fontSize:13, color:mid, marginBottom:2 }}>Bring your neighborhood together</div>
+<div style={{ fontSize:12, color:mid, marginBottom:20 }}><span style={{ color:G, fontWeight:600 }}>+500 Co-Points</span> for creating · <span style={{ color:G, fontWeight:600 }}>+50 Co-Points</span> per attendee</div>
+</>}
 
-
+        {evTab==="myevents" ? (
+          <div>
+            <h3 style={{ fontSize:16, fontWeight:700, color:ink, marginBottom:16 }}>My Events</h3>
+            { allMyEvents.length===0 ? (
+              <div style={{ textAlign:"center", color:mid, fontSize:13, padding:"40px 0" }}>No events created yet</div>
+            ) : allMyEvents.map(e=>(
+              <div key={e.id} style={{ background:card, border:"1px solid "+bdr, borderRadius:16, padding:16, marginBottom:12 }}>
+                <div style={{ fontSize:15, fontWeight:700, color:ink, marginBottom:4 }}>{e.title}</div>
+                <div style={{ fontSize:12, color:mid, marginBottom:12 }}>{new Date(e.event_date).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</div>
+                <div style={{ fontSize:11, fontWeight:700, color:mid, marginBottom:8, letterSpacing:0.5 }}>ATTENDEES</div>
+                {(eventAttendeesMap[e.id]||[]).filter(a=>a.status==='joining').length===0 ? (
+                  <div style={{ fontSize:12, color:mid }}>No attendees yet</div>
+                ) : (eventAttendeesMap[e.id]||[]).filter(a=>a.status==='joining').map(a=>(
+                  <div key={a.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 0", borderBottom:"1px solid "+bdr }}>
+                    <Av ini={(a.user_name||"?")[0]} size={28} col={G} imgUrl={a.avatar_url}/>
+                    <span style={{ flex:1, fontSize:12, color:ink, fontWeight:600 }}>{a.user_name}</span>
+                    {a.organizer_confirmed===null && new Date() > new Date(new Date(e.event_date).getTime() + 24*60*60*1000) && (
+  <div style={{ display:"flex", gap:4 }}>
+                        <button onClick={async(ev)=>{ ev.stopPropagation(); await supabase.from('event_attendees').update({organizer_confirmed:true}).eq('id',a.id); setEventAttendeesMap(prev=>({...prev,[e.id]:(prev[e.id]||[]).map(x=>x.id===a.id?{...x,organizer_confirmed:true}:x)})); }} style={{ padding:"4px 10px", background:G, color:"#fff", border:"none", borderRadius:8, fontSize:11, fontWeight:700, cursor:"pointer" }}>✓</button>
+                        
+                        <button onClick={async(ev)=>{ ev.stopPropagation(); await supabase.from('event_attendees').update({organizer_confirmed:false}).eq('id',a.id); setEventAttendeesMap(prev=>({...prev,[e.id]:(prev[e.id]||[]).map(x=>x.id===a.id?{...x,organizer_confirmed:false}:x)})); }} style={{ padding:"4px 10px", background:"#FFF0F0", color:R, border:"none", borderRadius:8, fontSize:11, fontWeight:700, cursor:"pointer" }}>✗</button>
+                      </div>
+                    )}
+                    {a.organizer_confirmed===true && <span style={{ fontSize:11, color:G, fontWeight:700 }}>✓ Confirmed</span>}
+                    {a.organizer_confirmed===false && <span style={{ fontSize:11, color:R, fontWeight:700 }}>✗ Rejected</span>}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        ) : (
+        <div>
         {success==="ev" ? (
           <div style={{ textAlign:"center", padding:"60px 0" }}>
             <div style={{ width:64, height:64, background:GL, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 14px" }}>
@@ -2017,6 +2041,8 @@ const filtPosts = allPosts.filter(p=>{
               </button>
             </div>
           </div>
+        )}
+        </div>
         )}
       </div>
     );
@@ -2420,7 +2446,7 @@ const filtPosts = allPosts.filter(p=>{
       <div style={{ fontSize:13, color:mid, marginBottom:24, lineHeight:1.6 }}>Please confirm whether you attended this event. This helps your organizer and unlocks your Co-Points.</div>
       <div style={{ display:"flex", gap:10 }}>
         <button onClick={async()=>{
-          await supabase.from('event_attendees').update({attendee_confirmed:true}).eq('event_id', attendeeConfirmNotif.event_id).eq('user_id', user?.id);
+          await supabase.from('event_attendees').update({attendee_confirmed:true}).eq('event_id', attendeeConfirmNotif.post_id).eq('user_id', user?.id);
           await supabase.from('notifications').update({read:true}).eq('id', attendeeConfirmNotif.id);
           setAttendeeConfirmNotif(null);
           alert("Confirmed! Waiting for organizer approval.");
@@ -2428,7 +2454,7 @@ const filtPosts = allPosts.filter(p=>{
           ✓ Yes, I attended
         </button>
         <button onClick={async()=>{
-          await supabase.from('event_attendees').update({attendee_confirmed:false}).eq('event_id', attendeeConfirmNotif.event_id).eq('user_id', user?.id);
+          await supabase.from('event_attendees').update({attendee_confirmed:false}).eq('event_id', attendeeConfirmNotif.post_id).eq('user_id', user?.id);
           await supabase.from('notifications').update({read:true}).eq('id', attendeeConfirmNotif.id);
           setAttendeeConfirmNotif(null);
         }} style={{ flex:1, padding:"13px 0", background:"#FFF0F0", color:R, border:"none", borderRadius:14, fontSize:14, fontWeight:700, cursor:"pointer" }}>
