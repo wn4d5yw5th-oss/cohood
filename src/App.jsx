@@ -2244,6 +2244,20 @@ const filtPosts = allPosts.filter(p=>{
   </div>
 </div>
 
+<div style={{ background:card, border:"1px solid "+bdr, borderRadius:16, padding:"14px 16px", marginBottom:12, opacity:0.6 }}>
+  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+    <div style={{ width:40, height:40, borderRadius:12, background:GL, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+      <Icon n="star" size={18} color={G}/>
+    </div>
+    <div style={{ flex:1 }}>
+      <div style={{ fontSize:13, fontWeight:700, color:ink }}>Quests</div>
+      <div style={{ fontSize:11, color:mid }}>Coming soon</div>
+    </div>
+    <Icon n="chevronRight" size={16} color={mid}/>
+  </div>
+</div>
+
+
             <div style={{ background:card, border:"1px solid "+bdr, borderRadius:16, overflow:"hidden", marginBottom:12 }}>
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 16px", borderBottom:"1px solid "+bdr }}>
                 <div style={{ display:"flex", alignItems:"center", gap:10 }}><Icon n="globe" size={17} color={G}/><span style={{ fontSize:14, fontWeight:500, color:ink }}>{t.langPref}</span></div>
