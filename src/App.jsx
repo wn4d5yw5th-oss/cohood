@@ -244,6 +244,39 @@ const CAT_ICONS = {
 "Reparatie":"tool","Boodschappen":"bag","Vervoer":"car","Kinderopvang":"baby","Tuin":"leaf","Koken":"star","Vertaling":"globe","Anders":"msg"
 };
 
+const NATIONALITIES = [
+  "Afghan","Albanian","Algerian","American","Andorran","Angolan","Argentine","Armenian","Australian","Austrian","Azerbaijani","Bahraini","Bangladeshi","Belarusian","Belgian","Bolivian","Bosnian","Brazilian","British","Bulgarian","Cameroonian","Canadian","Chilean","Chinese","Colombian","Congolese","Croatian","Cuban","Czech","Danish","Dutch","Egyptian","Eritrean","Estonian","Ethiopian","Finnish","French","Georgian","German","Ghanaian","Greek","Guatemalan","Honduran","Hungarian","Indian","Indonesian","Iranian","Iraqi","Irish","Israeli","Italian","Ivorian","Jamaican","Japanese","Jordanian","Kazakh","Kenyan","Korean","Kuwaiti","Kyrgyz","Lebanese","Libyan","Lithuanian","Luxembourgish","Malaysian","Malian","Maltese","Mexican","Moldovan","Mongolian","Moroccan","Mozambican","Namibian","Nepalese","New Zealander","Nicaraguan","Nigerian","Norwegian","Pakistani","Palestinian","Panamanian","Paraguayan","Peruvian","Philippine","Polish","Portuguese","Romanian","Russian","Rwandan","Saudi","Senegalese","Serbian","Sierra Leonean","Singaporean","Slovak","Slovenian","Somali","South African","Spanish","Sri Lankan","Sudanese","Swedish","Swiss","Syrian","Taiwanese","Tajik","Tanzanian","Thai","Togolese","Tunisian","Turkish","Turkmen","Ugandan","Ukrainian","Uruguayan","Uzbek","Venezuelan","Vietnamese","Yemeni","Zambian","Zimbabwean","Other"
+];
+
+const NationalityInput = ({ val, onChange }) => {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const filtered = NATIONALITIES.filter(n => n.toLowerCase().startsWith(query.toLowerCase()));
+  return (
+   <div style={{ position:"relative", minWidth:0 }}>
+     <div style={{ display:"flex", alignItems:"center", gap:6, background:val?"#fff":"#F0EBE1", border:"1.5px solid "+(open?"#3D6B35":"#E2D9CC"), borderRadius:12, padding:"12px 10px", width:"100%", boxSizing:"border-box" }}>
+        <Icon n="globe" size={16} color="#A8997E"/>
+        <input
+          value={val || query}
+          onChange={e=>{ setQuery(e.target.value); onChange(""); setOpen(true); }}
+          onFocus={()=>setOpen(true)}
+          placeholder="Nationality"
+          style={{ flex:1, border:"none", outline:"none", background:"transparent", fontSize:14, color:"#2C2416", fontFamily:"DM Sans,sans-serif" }}
+        />
+      </div>
+      {open && query.length > 0 && filtered.length > 0 && (
+        <div style={{ position:"absolute", top:"100%", left:0, right:0, background:"#fff", border:"1px solid #E2D9CC", borderRadius:12, zIndex:50, maxHeight:180, overflowY:"auto", boxShadow:"0 8px 24px rgba(0,0,0,.08)" }}>
+          {filtered.map(n=>(
+            <div key={n} onClick={()=>{ onChange(n); setQuery(""); setOpen(false); }} style={{ padding:"10px 14px", fontSize:13, color:"#2C2416", cursor:"pointer", borderBottom:"1px solid #F0EBE1" }}>
+              {n}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 function InputField({ icon, ph, val, onChange, isPass }) {
   const [focused, setFocused] = useState(false);
   const [show, setShow] = useState(false);
@@ -507,7 +540,8 @@ function Auth({ onLogin, lang, setLang }) {
   const [referralCode, setReferralCode] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
-  
+  const [birthDate, setBirthDate] = useState("");
+const [nationality, setNationality] = useState("");
 
   const onbSlides = [
     { icon:"users", bg:GL, color:G, title:t.welcomeTitle, desc:t.welcomeDesc },
@@ -537,10 +571,14 @@ if (!hasUpper || !hasNumber || !hasSymbol) {
   return;
 }
     if (pass!==pass2) { alert(t.errPassMatch); return; }
+    if (!nationality) { alert("Please select your nationality"); return; }
     if (!hood) { alert(t.errHood); return; }
+    if (!birthDate) { alert("Please enter your date of birth"); return; }
+const age = Math.floor((new Date() - new Date(birthDate)) / (365.25 * 24 * 60 * 60 * 1000));
+if (age < 18) { alert("You must be at least 18 years old to join CoHood"); return; }
     if (!termsAccepted) { alert(t.termsError); return; }
     setLoading(true);
-    const { error } = await signUp(email, pass, name, hood, referralCode.trim());
+    const { error } = await signUp(email, pass, name, hood, referralCode.trim(), birthDate, nationality);
     setLoading(false);
     if (error) { alert(error.message); return; }
     setScreen("verify-email");
@@ -602,13 +640,16 @@ if (!hasUpper || !hasNumber || !hasSymbol) {
           <InputField icon="mail" ph={t.emailPh} val={email} onChange={e=>setEmail(e.target.value)}/>
           <InputField icon="lock" ph={t.passPh} val={pass} onChange={e=>setPass(e.target.value)} isPass/>
           <InputField icon="lock" ph={t.confirmPh} val={pass2} onChange={e=>setPass2(e.target.value)} isPass/>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
+ <input type="date" value={birthDate} onChange={e=>setBirthDate(e.target.value)} style={{ padding:"12px 10px", background:"#F0EBE1", border:"1.5px solid #E2D9CC", borderRadius:12, fontSize:12, color:birthDate?"#2C2416":"#A8997E", fontFamily:"DM Sans,sans-serif", outline:"none", cursor:"pointer", width:"100%", boxSizing:"border-box", height:"46px" }}/>
+  <NationalityInput val={nationality} onChange={setNationality}/>
+  <select value={hood} onChange={e=>setHood(e.target.value)} style={{ padding:"12px 10px", background:"#F0EBE1", border:"1.5px solid #E2D9CC", borderRadius:12, fontSize:12, color:hood?"#2C2416":"#A8997E", fontFamily:"DM Sans,sans-serif", outline:"none", cursor:"pointer", width:"100%", boxSizing:"border-box" }}>
+    <option value="" disabled>Neighborhood</option>
+    {AMSTERDAM_HOODS.map(h=><option key={h} value={h}>{h}</option>)}
+  </select>
+</div>
           <InputField icon="users" ph="Referral code (optional)" val={referralCode} onChange={e=>setReferralCode(e.target.value.toUpperCase())}/>
-         
-          <select value={hood} onChange={e=>setHood(e.target.value)} style={{ padding:"12px 14px", background:"#F0EBE1", border:"1.5px solid #E2D9CC", borderRadius:12, fontSize:14, color:hood?"#2C2416":"#A8997E", fontFamily:"DM Sans,sans-serif", outline:"none", cursor:"pointer" }}>
-            <option value="" disabled>{t.hoodPh}</option>
-            {AMSTERDAM_HOODS.map(h=><option key={h} value={h}>{h}</option>)}
-          </select>
-
+          
  <div style={{ display:"flex", alignItems:"center", gap:10, padding:"4px 0" }}>
   <input type="checkbox" id="terms" checked={termsAccepted} onChange={e=>setTermsAccepted(e.target.checked)} style={{ width:18, height:18, cursor:"pointer", accentColor:G }}/>
   <label htmlFor="terms" style={{ fontSize:13, color:"#6B5E4E", fontFamily:"DM Sans,sans-serif" }}>

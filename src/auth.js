@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-export async function signUp(email, password, fullName, neighborhood, referredBy) {
+export async function signUp(email, password, fullName, neighborhood, referredBy, birthDate, nationality) {
   const referralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
   const { data, error } = await supabase.auth.signUp({
@@ -21,7 +21,9 @@ export async function signUp(email, password, fullName, neighborhood, referredBy
       neighborhood: neighborhood,
       verified: false,
       referral_code: referralCode,
-      referred_by: referredBy || null
+      referred_by: referredBy || null,
+      birth_date: birthDate || null,
+      nationality: nationality || null
     });
   }
   
